@@ -13,7 +13,7 @@ export const Header = () => {
             <img 
               src="/lovable-uploads/1b09c49e-e955-4f4f-9ddc-ee549e0c50f6.png" 
               alt="PulsarInfinite Logo" 
-              className="h-10 w-auto"
+              className="h-12 w-auto object-contain"
             />
             <div>
               <h1 className="text-xl font-bold" style={{ color: '#0505FB' }}>

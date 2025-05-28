@@ -1,44 +1,78 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DropletIcon } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useMQTT } from '@/hooks/useMQTT';
 
-const dailyData = [
-  { name: 'Lun', quantity: 45 },
-  { name: 'Mar', quantity: 38 },
-  { name: 'Mer', quantity: 52 },
-  { name: 'Jeu', quantity: 41 },
-  { name: 'Ven', quantity: 48 },
-  { name: 'Sam', quantity: 35 },
-  { name: 'Dim', quantity: 42 },
-];
+// Données simulées pour les différentes périodes
+const generateDailyData = () => {
+  const data = [];
+  for (let i = 0; i < 24; i++) {
+    data.push({
+      time: `${i.toString().padStart(2, '0')}:00`,
+      quantity: Math.random() * 0.5 + 0.1 // 0.1 à 0.6 m³
+    });
+  }
+  return data;
+};
 
-const weeklyData = [
-  { name: 'S1', quantity: 285 },
-  { name: 'S2', quantity: 312 },
-  { name: 'S3', quantity: 298 },
-  { name: 'S4', quantity: 275 },
-];
+const generateWeeklyData = () => {
+  return [
+    { time: 'Lun', quantity: 2.8 },
+    { time: 'Mar', quantity: 3.2 },
+    { time: 'Mer', quantity: 2.1 },
+    { time: 'Jeu', quantity: 3.8 },
+    { time: 'Ven', quantity: 2.9 },
+    { time: 'Sam', quantity: 1.5 },
+    { time: 'Dim', quantity: 2.2 },
+  ];
+};
 
-const monthlyData = [
-  { name: 'Jan', quantity: 1250 },
-  { name: 'Fév', quantity: 1180 },
-  { name: 'Mar', quantity: 1420 },
-  { name: 'Avr', quantity: 1350 },
-  { name: 'Mai', quantity: 1580 },
-  { name: 'Jun', quantity: 1720 },
-];
+const generateMonthlyData = () => {
+  return [
+    { time: 'S1', quantity: 15.2 },
+    { time: 'S2', quantity: 18.1 },
+    { time: 'S3', quantity: 12.8 },
+    { time: 'S4', quantity: 16.5 },
+  ];
+};
 
 export const WaterChart = () => {
+  const [dailyData, setDailyData] = useState(generateDailyData());
+  const { irrigationStatus } = useMQTT();
+
+  // Simulation de mise à jour en temps réel
+  useEffect(() => {
+    if (irrigationStatus) {
+      const interval = setInterval(() => {
+        setDailyData(prevData => {
+          const newData = [...prevData];
+          const currentHour = new Date().getHours();
+          const currentIndex = newData.findIndex(item => item.time === `${currentHour.toString().padStart(2, '0')}:00`);
+          
+          if (currentIndex !== -1) {
+            newData[currentIndex] = {
+              ...newData[currentIndex],
+              quantity: newData[currentIndex].quantity + 0.01 // Augmentation progressive
+            };
+          }
+          
+          return newData;
+        });
+      }, 5000); // Mise à jour toutes les 5 secondes
+
+      return () => clearInterval(interval);
+    }
+  }, [irrigationStatus]);
+
+  const weeklyData = generateWeeklyData();
+  const monthlyData = generateMonthlyData();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <DropletIcon className="h-5 w-5 text-blue-600" />
-          <span>Quantité d'Eau Utilisée</span>
-        </CardTitle>
+        <CardTitle>Quantité d'Eau Utilisée</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="daily" className="w-full">
@@ -50,41 +84,79 @@ export const WaterChart = () => {
           
           <TabsContent value="daily" className="mt-4">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dailyData}>
+              <LineChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`${value} L`, 'Quantité']} />
-                <Bar dataKey="quantity" fill="#0505FB" />
-              </BarChart>
+                <XAxis 
+                  dataKey="time" 
+                  interval={2}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${Number(value).toFixed(2)} m³`, 'Quantité']}
+                  labelFormatter={(label) => `Heure: ${label}`}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="quantity" 
+                  stroke="#0505FB" 
+                  strokeWidth={2}
+                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#0505FB' }}
+                />
+              </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité en litres par jour</p>
+            <p className="text-sm text-gray-600 mt-2">
+              Quantité en mètres cubes par heure
+              {irrigationStatus && (
+                <span className="text-blue-600 font-medium"> - Mise à jour en temps réel</span>
+              )}
+            </p>
           </TabsContent>
           
           <TabsContent value="weekly" className="mt-4">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData}>
+              <LineChart data={weeklyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`${value} L`, 'Quantité']} />
-                <Bar dataKey="quantity" fill="#0505FB" />
-              </BarChart>
+                <XAxis dataKey="time" />
+                <YAxis 
+                  label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip formatter={(value) => [`${value} m³`, 'Quantité']} />
+                <Line 
+                  type="monotone" 
+                  dataKey="quantity" 
+                  stroke="#0505FB" 
+                  strokeWidth={2}
+                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité en litres par semaine</p>
+            <p className="text-sm text-gray-600 mt-2">Quantité en mètres cubes par jour</p>
           </TabsContent>
           
           <TabsContent value="monthly" className="mt-4">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
+              <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`${value} L`, 'Quantité']} />
-                <Bar dataKey="quantity" fill="#0505FB" />
-              </BarChart>
+                <XAxis dataKey="time" />
+                <YAxis 
+                  label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip formatter={(value) => [`${value} m³`, 'Quantité']} />
+                <Line 
+                  type="monotone" 
+                  dataKey="quantity" 
+                  stroke="#0505FB" 
+                  strokeWidth={2}
+                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité en litres par mois</p>
+            <p className="text-sm text-gray-600 mt-2">Quantité en mètres cubes par semaine</p>
           </TabsContent>
         </Tabs>
       </CardContent>
