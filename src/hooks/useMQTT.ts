@@ -11,7 +11,6 @@ export const useMQTT = () => {
   const [messages, setMessages] = useState<MQTTMessage[]>([]);
   const [irrigationStatus, setIrrigationStatus] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
-  const [manualOverride, setManualOverride] = useState(false);
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: number; retain?: boolean }) => {
     if (!isConnected) {
@@ -36,20 +35,15 @@ export const useMQTT = () => {
       if (parsedMessage.json?.switch_relay?.device !== undefined) {
         const newStatus = parsedMessage.json.switch_relay.device === 1;
         setIrrigationStatus(newStatus);
-        // Si on active/désactive manuellement, passer en mode manuel
-        setIsManualMode(true);
-        setManualOverride(true);
-        
-        // Revenir en mode automatique après 30 secondes d'inactivité
-        setTimeout(() => {
-          setIsManualMode(false);
-          setManualOverride(false);
-        }, 30000);
       }
     } catch (error) {
       console.error('Erreur lors du parsing du message:', error);
     }
   }, [isConnected]);
+
+  const setManualMode = useCallback((mode: boolean) => {
+    setIsManualMode(mode);
+  }, []);
 
   useEffect(() => {
     // Simulation de connexion MQTT
@@ -64,8 +58,8 @@ export const useMQTT = () => {
         // Simulation de réception de messages périodiques
         const interval = setInterval(() => {
           // Ne pas changer l'état automatiquement si en mode manuel
-          if (!isManualMode && !manualOverride) {
-            const randomStatus = Math.random() > 0.7; // Moins fréquent
+          if (!isManualMode) {
+            const randomStatus = Math.random() > 0.7;
             setIrrigationStatus(randomStatus);
           }
           
@@ -79,7 +73,7 @@ export const useMQTT = () => {
           };
           
           setMessages(prev => [...prev.slice(-9), message]);
-        }, 8000); // Plus espacé
+        }, 8000);
 
         return () => {
           clearInterval(interval);
@@ -93,7 +87,7 @@ export const useMQTT = () => {
 
     const cleanup = connectToMQTT();
     return cleanup;
-  }, [isManualMode, manualOverride, irrigationStatus]);
+  }, [isManualMode, irrigationStatus]);
 
   return {
     isConnected,
@@ -101,6 +95,6 @@ export const useMQTT = () => {
     irrigationStatus,
     isManualMode,
     publishMessage,
-    setManualMode: setIsManualMode
+    setManualMode
   };
 };
