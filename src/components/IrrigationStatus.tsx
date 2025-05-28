@@ -1,0 +1,63 @@
+
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Droplets, MapPin, Leaf } from 'lucide-react';
+import { useMQTT } from '@/hooks/useMQTT';
+
+export const IrrigationStatus = () => {
+  const { irrigationStatus, isConnected } = useMQTT();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Leaf className="h-5 w-5 text-green-600" />
+          <span>Zone d'Irrigation</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-green-800">Parcelle Arachide A1</h3>
+            <Badge variant={irrigationStatus ? "default" : "secondary"}>
+              {irrigationStatus ? "EN COURS" : "ARRÊTÉ"}
+            </Badge>
+          </div>
+          
+          <div className="space-y-2 text-sm text-green-700">
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-4 w-4" />
+              <span>Taiba Ndiaye, Thiès</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Droplets className="h-4 w-4" />
+              <span>Statut: {irrigationStatus ? "Arrosage actif" : "Pas d'arrosage"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-gray-600">Surface</p>
+            <p className="font-semibold">2.5 hectares</p>
+          </div>
+          <div>
+            <p className="text-gray-600">Type de sol</p>
+            <p className="font-semibold">Sablo-argileux</p>
+          </div>
+          <div>
+            <p className="text-gray-600">Connexion</p>
+            <p className={`font-semibold ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+              {isConnected ? 'Connecté' : 'Déconnecté'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600">Dernière irrigation</p>
+            <p className="font-semibold">Il y a 2h</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
