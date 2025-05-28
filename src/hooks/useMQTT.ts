@@ -10,6 +10,7 @@ export const useMQTT = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<MQTTMessage[]>([]);
   const [irrigationStatus, setIrrigationStatus] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
 
   useEffect(() => {
     // Simulation de connexion MQTT
@@ -23,27 +24,30 @@ export const useMQTT = () => {
         
         // Simulation de réception de messages périodiques
         const interval = setInterval(() => {
-          const randomStatus = Math.random() > 0.5;
-          setIrrigationStatus(randomStatus);
+          // Ne pas changer l'état automatiquement si en mode manuel
+          if (!isManualMode) {
+            const randomStatus = Math.random() > 0.7; // Moins fréquent
+            setIrrigationStatus(randomStatus);
+          }
           
           const message = {
             topic: "data/PulsarInfinite/swr",
             message: JSON.stringify({
               type: "STATUS",
-              irrigation: randomStatus,
+              irrigation: irrigationStatus,
               timestamp: new Date().toISOString()
             })
           };
           
           setMessages(prev => [...prev.slice(-9), message]);
-        }, 5000);
+        }, 8000); // Plus espacé
 
         return () => clearInterval(interval);
       }, 2000);
     };
 
     connectToMQTT();
-  }, []);
+  }, [isManualMode, irrigationStatus]);
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: number; retain?: boolean }) => {
     if (!isConnected) {
@@ -66,7 +70,15 @@ export const useMQTT = () => {
     try {
       const parsedMessage = JSON.parse(message);
       if (parsedMessage.json?.switch_relay?.device !== undefined) {
-        setIrrigationStatus(parsedMessage.json.switch_relay.device === 1);
+        const newStatus = parsedMessage.json.switch_relay.device === 1;
+        setIrrigationStatus(newStatus);
+        // Si on active/désactive manuellement, passer en mode manuel
+        setIsManualMode(true);
+        
+        // Revenir en mode automatique après 30 secondes d'inactivité
+        setTimeout(() => {
+          setIsManualMode(false);
+        }, 30000);
       }
     } catch (error) {
       console.error('Erreur lors du parsing du message:', error);
@@ -77,6 +89,8 @@ export const useMQTT = () => {
     isConnected,
     messages,
     irrigationStatus,
-    publishMessage
+    isManualMode,
+    publishMessage,
+    setManualMode: setIsManualMode
   };
 };
