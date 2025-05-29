@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Clock } from 'lucide-react';
+import { Clock, Brain, Wifi, WifiOff } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
+import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
+import { backendService } from '@/services/backendService';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -22,30 +24,66 @@ export const QuickControl = () => {
   const [isManualActive, setIsManualActive] = useState(false);
   
   const { publishMessage, isConnected, irrigationStatus, setManualMode } = useMQTT();
+  const { lastMLRecommendation, isBackendConnected } = useBackendSync();
   const { toast } = useToast();
 
-  const toggleManualIrrigation = (enabled: boolean) => {
-    setIsManualActive(enabled);
-    setManualMode(enabled);
-    
-    const message = {
-      type: "JOIN",
-      fcnt: 0,
-      json: {
-        switch_relay: {
-          device: enabled ? 1 : 0
-        }
-      }
-    };
+  const toggleManualIrrigation = async (enabled: boolean) => {
+    if (enabled) {
+      // Envoyer au backend d'abord
+      const response = await backendService.startManualIrrigation(
+        parseInt(manualDuration.hours),
+        parseInt(manualDuration.minutes)
+      );
 
-    publishMessage("data/PulsarInfinite/swr", JSON.stringify(message), { qos: 1, retain: true });
-    
-    toast({
-      title: enabled ? "Irrigation manuelle activée" : "Irrigation manuelle désactivée",
-      description: enabled ? 
-        `L'arrosage démarrera pour ${manualDuration.hours}h${manualDuration.minutes}min` : 
-        "L'arrosage a été arrêté",
-    });
+      if (response.success) {
+        setIsManualActive(true);
+        setManualMode(true);
+        
+        // Ensuite publier sur MQTT
+        const message = {
+          type: "JOIN",
+          fcnt: 0,
+          json: {
+            switch_relay: {
+              device: 1
+            }
+          }
+        };
+
+        publishMessage("data/PulsarInfinite/swr", JSON.stringify(message), { qos: 1, retain: true });
+        
+        toast({
+          title: "Irrigation manuelle activée",
+          description: `L'arrosage démarrera pour ${manualDuration.hours}h${manualDuration.minutes}min`,
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: response.message,
+          variant: "destructive"
+        });
+      }
+    } else {
+      setIsManualActive(false);
+      setManualMode(false);
+      
+      const message = {
+        type: "JOIN",
+        fcnt: 0,
+        json: {
+          switch_relay: {
+            device: 0
+          }
+        }
+      };
+
+      publishMessage("data/PulsarInfinite/swr", JSON.stringify(message), { qos: 1, retain: true });
+      
+      toast({
+        title: "Irrigation manuelle désactivée",
+        description: "L'arrosage a été arrêté",
+      });
+    }
   };
 
   const updateSchedule = (day: string, field: string, value: any) => {
@@ -58,15 +96,59 @@ export const QuickControl = () => {
     }));
   };
 
-  const saveSchedule = () => {
-    toast({
-      title: "Planning sauvegardé",
-      description: "Le planning d'irrigation a été mis à jour.",
-    });
+  const saveSchedule = async () => {
+    const response = await backendService.sendSchedulesToBackend(schedules);
+    
+    if (response.success) {
+      toast({
+        title: "Planning sauvegardé",
+        description: "Le planning a été envoyé au backend pour analyse ML.",
+      });
+    } else {
+      toast({
+        title: "Erreur",
+        description: response.message,
+        variant: "destructive"
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Backend & ML Status */}
+      {lastMLRecommendation && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2 text-blue-800">
+              <Brain className="h-5 w-5" />
+              <span>Dernière Recommandation ML</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-700">
+                  Durée recommandée: {lastMLRecommendation.durationHours}h {lastMLRecommendation.durationMinutes}min
+                </p>
+                <p className="text-xs text-blue-600">
+                  Basé sur l'analyse de 15 paramètres agro-environnementaux
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                {isBackendConnected ? (
+                  <Wifi className="h-4 w-4 text-green-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-600" />
+                )}
+                <span className="text-xs">
+                  {isBackendConnected ? 'Backend connecté' : 'Backend déconnecté'}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Manual Control */}
       <Card>
         <CardHeader>
@@ -77,12 +159,14 @@ export const QuickControl = () => {
             <Switch 
               checked={isManualActive}
               onCheckedChange={toggleManualIrrigation}
-              disabled={!isConnected}
+              disabled={!isConnected || !isBackendConnected}
             />
             <Label className="text-sm">
               {isManualActive ? "Irrigation manuelle active" : "Irrigation manuelle arrêtée"}
             </Label>
-            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <div className={`w-3 h-3 rounded-full ${
+              isConnected && isBackendConnected ? 'bg-green-500' : 'bg-red-500'
+            }`} />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -111,6 +195,12 @@ export const QuickControl = () => {
               />
             </div>
           </div>
+
+          {!isBackendConnected && (
+            <p className="text-sm text-orange-600">
+              ⚠️ Connexion backend requise pour l'irrigation
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -118,6 +208,9 @@ export const QuickControl = () => {
       <Card>
         <CardHeader>
           <CardTitle>Contrôle Programmé</CardTitle>
+          <p className="text-sm text-gray-600">
+            Les plannings seront analysés par l'IA pour optimiser l'irrigation
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4">
@@ -156,9 +249,10 @@ export const QuickControl = () => {
             onClick={saveSchedule}
             className="w-full"
             style={{ backgroundColor: '#0505FB' }}
+            disabled={!isBackendConnected}
           >
             <Clock className="h-4 w-4 mr-2" />
-            Sauvegarder le Planning
+            Envoyer au Backend ML
           </Button>
         </CardContent>
       </Card>
