@@ -22,37 +22,50 @@ import {
 const menuItems = [
   {
     title: "Tableau de bord",
-    url: "#dashboard",
+    sectionId: "dashboard",
     icon: Home,
   },
   {
     title: "Irrigation",
-    url: "#irrigation",
+    sectionId: "irrigation",
     icon: Droplets,
   },
   {
     title: "Paramètres Agro-climatiques",
-    url: "#sensors",
+    sectionId: "sensors",
     icon: Thermometer,
   },
   {
     title: "Analyses",
-    url: "#analytics",
+    sectionId: "analytics",
     icon: BarChart3,
   },
   {
     title: "Recommandations",
-    url: "#recommendations",
+    sectionId: "recommendations",
     icon: Lightbulb,
   },
   {
     title: "Paramètres",
-    url: "#settings",
+    sectionId: "settings",
     icon: Settings,
   },
 ];
 
 export function AppSidebar() {
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+      
+      // Mettre à jour l'URL sans recharger la page
+      window.history.pushState(null, '', `#${sectionId}`);
+    }
+  };
+
   return (
     <Sidebar className="border-r border-gray-200">
       <SidebarContent className="bg-white">
@@ -64,11 +77,14 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="hover:bg-blue-50">
-                    <a href={item.url} className="flex items-center space-x-3 text-gray-700 hover:text-blue-600">
+                  <SidebarMenuButton 
+                    className="hover:bg-blue-50 cursor-pointer"
+                    onClick={() => scrollToSection(item.sectionId)}
+                  >
+                    <div className="flex items-center space-x-3 text-gray-700 hover:text-blue-600">
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                    </a>
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
