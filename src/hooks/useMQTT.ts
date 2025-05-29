@@ -9,7 +9,7 @@ interface MQTTMessage {
 export const useMQTT = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<MQTTMessage[]>([]);
-  const [irrigationStatus, setIrrigationStatus] = useState(false);
+  const [irrigationStatus, setIrrigationStatus] = useState(false); // Par défaut arrêté
   const [isManualMode, setIsManualMode] = useState(false);
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: number; retain?: boolean }) => {
@@ -28,21 +28,15 @@ export const useMQTT = () => {
     };
     
     setMessages(prev => [...prev.slice(-9), newMessage]);
-    
-    // Mettre à jour le statut d'irrigation basé sur le message
-    try {
-      const parsedMessage = JSON.parse(message);
-      if (parsedMessage.json?.switch_relay?.device !== undefined) {
-        const newStatus = parsedMessage.json.switch_relay.device === 1;
-        setIrrigationStatus(newStatus);
-      }
-    } catch (error) {
-      console.error('Erreur lors du parsing du message:', error);
-    }
   }, [isConnected]);
 
   const setManualMode = useCallback((mode: boolean) => {
     setIsManualMode(mode);
+  }, []);
+
+  // Fonction pour recevoir les mises à jour du backend
+  const updateIrrigationFromBackend = useCallback((status: boolean) => {
+    setIrrigationStatus(status);
   }, []);
 
   useEffect(() => {
@@ -55,14 +49,8 @@ export const useMQTT = () => {
         setIsConnected(true);
         console.log('Connecté au broker MQTT');
         
-        // Simulation de réception de messages périodiques
+        // Messages de statut périodiques (sans changer l'état automatiquement)
         const interval = setInterval(() => {
-          // Ne pas changer l'état automatiquement si en mode manuel
-          if (!isManualMode) {
-            const randomStatus = Math.random() > 0.7;
-            setIrrigationStatus(randomStatus);
-          }
-          
           const message = {
             topic: "data/PulsarInfinite/swr",
             message: JSON.stringify({
@@ -87,7 +75,7 @@ export const useMQTT = () => {
 
     const cleanup = connectToMQTT();
     return cleanup;
-  }, [isManualMode, irrigationStatus]);
+  }, [irrigationStatus]);
 
   return {
     isConnected,
@@ -95,6 +83,7 @@ export const useMQTT = () => {
     irrigationStatus,
     isManualMode,
     publishMessage,
-    setManualMode
+    setManualMode,
+    updateIrrigationFromBackend
   };
 };
