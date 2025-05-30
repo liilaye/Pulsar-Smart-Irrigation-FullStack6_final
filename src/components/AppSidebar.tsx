@@ -26,11 +26,6 @@ const menuItems = [
     icon: Home,
   },
   {
-    title: "Irrigation",
-    sectionId: "irrigation",
-    icon: Droplets,
-  },
-  {
     title: "Paramètres Agro-climatiques",
     sectionId: "sensors",
     icon: Thermometer,
@@ -46,8 +41,8 @@ const menuItems = [
     icon: Lightbulb,
   },
   {
-    title: "Paramètres",
-    sectionId: "settings",
+    title: "Système d'Irrigation",
+    sectionId: "irrigation-system",
     icon: Settings,
   },
 ];

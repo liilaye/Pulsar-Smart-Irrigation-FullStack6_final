@@ -5,6 +5,7 @@ import { AgroClimateParams } from './AgroClimateParams';
 import { IrrigationStatus } from './IrrigationStatus';
 import { WaterChart } from './WaterChart';
 import { Recommendations } from './Recommendations';
+import { IrrigationSystemConfig } from './IrrigationSystemConfig';
 
 export const Dashboard = () => {
   return (
@@ -45,6 +46,14 @@ export const Dashboard = () => {
       <section id="recommendations" className="scroll-mt-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations</h2>
         <Recommendations />
+      </section>
+      
+      {/* Section Système d'Irrigation */}
+      <section id="irrigation-system" className="scroll-mt-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Système d'Irrigation</h2>
+        <div className="max-w-md">
+          <IrrigationSystemConfig />
+        </div>
       </section>
     </div>
   );
