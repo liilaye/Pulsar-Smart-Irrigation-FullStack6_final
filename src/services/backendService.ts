@@ -14,6 +14,11 @@ export interface ScheduleData {
   };
 }
 
+export interface IrrigationSystem {
+  type: 'goutte-a-goutte' | 'aspersion' | 'tourniquet' | 'laser' | 'micro-aspersion' | 'submersion';
+  name: string;
+}
+
 export interface BackendResponse {
   success: boolean;
   message: string;
@@ -21,9 +26,11 @@ export interface BackendResponse {
 }
 
 class BackendService {
-  private baseUrl = 'http://localhost:3001/api'; // Remplacez par votre URL backend
+  private baseUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://your-deployed-api.com/api' 
+    : 'http://localhost:5002/api';
 
-  async sendSchedulesToBackend(schedules: ScheduleData): Promise<BackendResponse> {
+  async sendSchedulesToBackend(schedules: ScheduleData, irrigationSystem?: string): Promise<BackendResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/schedules`, {
         method: 'POST',
@@ -32,6 +39,7 @@ class BackendService {
         },
         body: JSON.stringify({
           schedules,
+          irrigationSystem,
           timestamp: new Date().toISOString()
         }),
       });
@@ -39,11 +47,11 @@ class BackendService {
       return await response.json();
     } catch (error) {
       console.error('Erreur lors de l\'envoi des plannings:', error);
-      return { success: false, message: 'Erreur de connexion au backend' };
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
-  async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
+  async startManualIrrigation(durationHours: number, durationMinutes: number, irrigationSystem?: string): Promise<BackendResponse> {
     try {
       const response = await fetch(`${this.baseUrl}/irrigation/manual`, {
         method: 'POST',
@@ -54,6 +62,7 @@ class BackendService {
           durationHours,
           durationMinutes,
           scheduledBy: 'MANUAL',
+          irrigationSystem,
           timestamp: new Date().toISOString()
         }),
       });
@@ -61,7 +70,27 @@ class BackendService {
       return await response.json();
     } catch (error) {
       console.error('Erreur lors du démarrage manuel:', error);
-      return { success: false, message: 'Erreur de connexion au backend' };
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
+    }
+  }
+
+  async updateIrrigationSystem(system: string): Promise<BackendResponse> {
+    try {
+      const response = await fetch(`${this.baseUrl}/irrigation/system`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          irrigationSystem: system,
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du système:', error);
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 

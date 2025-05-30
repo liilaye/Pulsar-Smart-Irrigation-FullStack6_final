@@ -10,6 +10,7 @@ import { useMQTT } from '@/hooks/useMQTT';
 import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/services/backendService';
+import { IrrigationSystemConfig } from './IrrigationSystemConfig';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -29,7 +30,6 @@ export const QuickControl = () => {
 
   const toggleManualIrrigation = async (enabled: boolean) => {
     if (enabled) {
-      // Envoyer au backend d'abord
       const response = await backendService.startManualIrrigation(
         parseInt(manualDuration.hours),
         parseInt(manualDuration.minutes)
@@ -39,7 +39,6 @@ export const QuickControl = () => {
         setIsManualActive(true);
         setManualMode(true);
         
-        // Ensuite publier sur MQTT
         const message = {
           type: "JOIN",
           fcnt: 0,
@@ -102,7 +101,7 @@ export const QuickControl = () => {
     if (response.success) {
       toast({
         title: "Planning sauvegardé",
-        description: "Le planning a été envoyé au backend pour analyse ML.",
+        description: "Le planning a été envoyé au backend Flask pour analyse ML.",
       });
     } else {
       toast({
@@ -141,13 +140,16 @@ export const QuickControl = () => {
                   <WifiOff className="h-4 w-4 text-red-600" />
                 )}
                 <span className="text-xs">
-                  {isBackendConnected ? 'Backend connecté' : 'Backend déconnecté'}
+                  {isBackendConnected ? 'Flask API connecté' : 'Flask API déconnecté'}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Irrigation System Configuration */}
+      <IrrigationSystemConfig />
 
       {/* Manual Control */}
       <Card>
@@ -198,7 +200,7 @@ export const QuickControl = () => {
 
           {!isBackendConnected && (
             <p className="text-sm text-orange-600">
-              ⚠️ Connexion backend requise pour l'irrigation
+              ⚠️ Connexion Flask API requise pour l'irrigation
             </p>
           )}
         </CardContent>
@@ -209,7 +211,7 @@ export const QuickControl = () => {
         <CardHeader>
           <CardTitle>Contrôle Programmé</CardTitle>
           <p className="text-sm text-gray-600">
-            Les plannings seront analysés par l'IA pour optimiser l'irrigation
+            Les plannings seront analysés par l'IA Flask pour optimiser l'irrigation
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -252,7 +254,7 @@ export const QuickControl = () => {
             disabled={!isBackendConnected}
           >
             <Clock className="h-4 w-4 mr-2" />
-            Envoyer au Backend ML
+            Envoyer au Backend Flask
           </Button>
         </CardContent>
       </Card>

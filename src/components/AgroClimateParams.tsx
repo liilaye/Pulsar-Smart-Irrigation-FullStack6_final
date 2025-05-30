@@ -1,15 +1,21 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Cloud, Thermometer, TestTube, Leaf } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Cloud, Thermometer, TestTube, Leaf, MapPin } from 'lucide-react';
+import { useWeather } from '@/hooks/useWeather';
 
-const climateData = [
-  { name: "Température Air", value: "28°C", unit: "°C", status: "normal" },
-  { name: "Humidité Air", value: "65%", unit: "%", status: "normal" },
-  { name: "Vent Moyen", value: "12 km/h", unit: "km/h", status: "normal" },
-  { name: "Précipitations", value: "2.5 mm", unit: "mm", status: "faible" },
-];
+const getWeatherIcon = (iconType: string) => {
+  switch (iconType) {
+    case 'sun': return '☀️';
+    case 'cloud': return '☁️';
+    case 'rain': return '🌧️';
+    case 'storm': return '⛈️';
+    default: return '☀️';
+  }
+};
 
 const soilData = [
   { name: "Azote (N)", value: "45 mg/kg", unit: "mg/kg", status: "bon" },
@@ -38,13 +44,59 @@ const getStatusColor = (status: string) => {
 };
 
 export const AgroClimateParams = () => {
+  const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye'>('thies');
+  const { weatherData, isLoading, error } = useWeather(selectedLocation);
+
+  const climateData = weatherData ? [
+    { name: "Température Air", value: weatherData.temperature, unit: "°C", status: "normal" },
+    { name: "Humidité Air", value: weatherData.humidity, unit: "%", status: "normal" },
+    { name: "Vent Moyen", value: weatherData.windSpeed, unit: "km/h", status: "normal" },
+    { name: "Précipitations", value: weatherData.precipitation, unit: "mm", status: "faible" },
+  ] : [
+    { name: "Température Air", value: "Chargement...", unit: "°C", status: "normal" },
+    { name: "Humidité Air", value: "Chargement...", unit: "%", status: "normal" },
+    { name: "Vent Moyen", value: "Chargement...", unit: "km/h", status: "normal" },
+    { name: "Précipitations", value: "Chargement...", unit: "mm", status: "faible" },
+  ];
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Thermometer className="h-5 w-5 text-blue-600" />
-          <span>Paramètres Agro-climatiques</span>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Thermometer className="h-5 w-5 text-blue-600" />
+            <span>Paramètres Agro-climatiques</span>
+          </div>
+          {weatherData && (
+            <div className="flex items-center space-x-2 text-2xl">
+              {getWeatherIcon(weatherData.weatherIcon)}
+              <span className="text-sm text-gray-600">{weatherData.location}</span>
+            </div>
+          )}
         </CardTitle>
+        
+        <div className="flex items-center space-x-2">
+          <Label className="text-sm">Région:</Label>
+          <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye') => setSelectedLocation(value)}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="thies">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>Thiès</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="taiba-ndiaye">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>Taïba Ndiaye</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="climate" className="w-full">
@@ -64,6 +116,11 @@ export const AgroClimateParams = () => {
           </TabsList>
           
           <TabsContent value="climate" className="mt-4">
+            {error && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-700">⚠️ Données météo en mode local</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {climateData.map((param, index) => (
                 <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
