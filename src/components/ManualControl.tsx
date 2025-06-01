@@ -21,7 +21,7 @@ export const ManualControl = () => {
 
   const toggleManualIrrigation = async (enabled: boolean) => {
     if (enabled) {
-      // Commande pour allumer l'irrigation
+      // Commande pour allumer l'irrigation sur le topic correct
       const command = {
         type: "JOIN",
         fcnt: 0,
@@ -32,7 +32,7 @@ export const ManualControl = () => {
         }
       };
 
-      const success = publishMessage("data/PulsarInfinite/swr", JSON.stringify(command), { 
+      const success = publishMessage("data/PulsarInfinite/switch_relay", JSON.stringify(command), { 
         qos: 1, 
         retain: true 
       });
@@ -71,7 +71,7 @@ export const ManualControl = () => {
         }
       };
 
-      const success = publishMessage("data/PulsarInfinite/swr", JSON.stringify(command), { 
+      const success = publishMessage("data/PulsarInfinite/switch_relay", JSON.stringify(command), { 
         qos: 1, 
         retain: true 
       });

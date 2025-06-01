@@ -31,7 +31,7 @@ export const useMQTT = () => {
     'ws://217.182.210.54:9001/',
   ];
 
-  const publishMessage = useCallback((topic: string, message: string, options?: { qos?: number; retain?: boolean }) => {
+  const publishMessage = useCallback((topic: string, message: string, options?: { qos?: 0 | 1 | 2; retain?: boolean }) => {
     if (!isConnected || !clientRef.current) {
       console.error('Non connecté au broker MQTT');
       return false;
@@ -42,7 +42,7 @@ export const useMQTT = () => {
       console.log('Options:', options);
       
       clientRef.current.publish(topic, message, {
-        qos: options?.qos || 1,
+        qos: (options?.qos || 1) as 0 | 1 | 2,
         retain: options?.retain || true
       }, (error) => {
         if (error) {
@@ -97,8 +97,8 @@ export const useMQTT = () => {
         setIsConnected(true);
         setConnectionAttempts(0);
         
-        // S'abonner aux topics nécessaires
-        client.subscribe('data/PulsarInfinite/swr', { qos: 1 });
+        // S'abonner au topic switch_relay comme demandé
+        client.subscribe('data/PulsarInfinite/switch_relay', { qos: 1 });
         client.subscribe('data/PulsarInfinite/status', { qos: 1 });
       });
 
@@ -109,9 +109,13 @@ export const useMQTT = () => {
         try {
           const data = JSON.parse(messageStr);
           
-          // Traiter les messages de statut
-          if (topic.includes('status') && data.irrigation !== undefined) {
-            setIrrigationStatus(data.irrigation);
+          // Traiter les messages de statut et switch_relay
+          if (topic.includes('switch_relay') || topic.includes('status')) {
+            if (data.device !== undefined) {
+              setIrrigationStatus(data.device === 1);
+            } else if (data.irrigation !== undefined) {
+              setIrrigationStatus(data.irrigation);
+            }
           }
           
           const newMessage = { topic, message: messageStr };

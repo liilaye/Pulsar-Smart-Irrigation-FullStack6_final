@@ -26,11 +26,11 @@ export const DeviceLocation = () => {
       try {
         await loader.load();
         
-        if (mapRef.current) {
-          mapInstance.current = new google.maps.Map(mapRef.current, {
+        if (mapRef.current && window.google) {
+          mapInstance.current = new window.google.maps.Map(mapRef.current, {
             center: deviceLocation,
             zoom: 16,
-            mapTypeId: google.maps.MapTypeId.SATELLITE,
+            mapTypeId: window.google.maps.MapTypeId.SATELLITE,
             styles: [
               {
                 featureType: "poi",
@@ -41,18 +41,18 @@ export const DeviceLocation = () => {
           });
 
           // Ajouter un marqueur rouge pour le boîtier PulsarInfinite
-          new google.maps.Marker({
+          new window.google.maps.Marker({
             position: deviceLocation,
             map: mapInstance.current,
             title: "Boîtier PulsarInfinite",
             icon: {
               url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-              scaledSize: new google.maps.Size(40, 40)
+              scaledSize: new window.google.maps.Size(40, 40)
             }
           });
 
           // Ajouter un cercle pour indiquer la zone d'irrigation
-          new google.maps.Circle({
+          new window.google.maps.Circle({
             strokeColor: "#0505FB",
             strokeOpacity: 0.8,
             strokeWeight: 2,
@@ -70,7 +70,7 @@ export const DeviceLocation = () => {
           mapRef.current.innerHTML = `
             <div class="flex items-center justify-center h-full bg-gray-100 rounded">
               <div class="text-center">
-                <MapPin class="mx-auto h-8 w-8 text-red-500 mb-2" />
+                <div class="mx-auto h-8 w-8 text-red-500 mb-2">📍</div>
                 <p class="text-sm text-gray-600">Hann Maristes, Dakar</p>
                 <p class="text-xs text-gray-500">Lat: ${deviceLocation.lat}, Lng: ${deviceLocation.lng}</p>
               </div>

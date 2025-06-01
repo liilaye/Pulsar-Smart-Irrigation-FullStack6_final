@@ -31,6 +31,12 @@ export interface BackendResponse {
   data?: any;
 }
 
+export interface IrrigationSystem {
+  type: 'goutte-a-goutte' | 'aspersion' | 'micro-aspersion';
+  flowRate: number;
+  coverage: number;
+}
+
 class BackendService {
   private baseUrl = process.env.NODE_ENV === 'production' 
     ? 'https://your-deployed-api.com/api' 
