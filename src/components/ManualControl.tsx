@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { AlertCircle, Wifi, WifiOff, RotateCcw } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
@@ -15,13 +16,20 @@ export const ManualControl = () => {
   const [isManualActive, setIsManualActive] = useState(false);
   const [lastMLRecommendation, setLastMLRecommendation] = useState<any>(null);
   
-  const { publishMessage, isConnected, setManualMode, irrigationStatus, connectionAttempts } = useMQTT();
+  const { 
+    publishMessage, 
+    isConnected, 
+    setManualMode, 
+    irrigationStatus, 
+    connectionAttempts,
+    retryConnection,
+    maxRetries
+  } = useMQTT();
   const { isBackendConnected } = useBackendSync();
   const { toast } = useToast();
 
   const toggleManualIrrigation = async (enabled: boolean) => {
     if (enabled) {
-      // Commande pour allumer l'irrigation sur le topic correct
       const command = {
         type: "JOIN",
         fcnt: 0,
@@ -42,11 +50,10 @@ export const ManualControl = () => {
         setManualMode(true);
         
         toast({
-          title: "Irrigation manuelle activée",
+          title: "🚿 Irrigation manuelle activée",
           description: `L'arrosage démarrera pour ${manualDuration.hours}h${manualDuration.minutes}min`,
         });
 
-        // Programmer l'arrêt automatique
         const totalMinutes = parseInt(manualDuration.hours) * 60 + parseInt(manualDuration.minutes);
         setTimeout(() => {
           toggleManualIrrigation(false);
@@ -54,13 +61,12 @@ export const ManualControl = () => {
 
       } else {
         toast({
-          title: "Erreur",
+          title: "❌ Erreur",
           description: "Impossible d'envoyer la commande MQTT",
           variant: "destructive"
         });
       }
     } else {
-      // Commande pour arrêter l'irrigation
       const command = {
         type: "JOIN",
         fcnt: 0,
@@ -81,7 +87,7 @@ export const ManualControl = () => {
         setManualMode(false);
         
         toast({
-          title: "Irrigation manuelle désactivée",
+          title: "⏹️ Irrigation manuelle désactivée",
           description: "L'arrosage a été arrêté",
         });
       }
@@ -90,8 +96,6 @@ export const ManualControl = () => {
 
   const getMLRecommendation = async () => {
     const features = backendService.getDefaultSoilClimateFeatures();
-    features.push("tomate" as any); // Type de culture
-    features.push("fergileux" as any); // Type de sol
     
     const recommendation = await backendService.getMLRecommendation(features);
     
@@ -103,24 +107,54 @@ export const ManualControl = () => {
       });
       
       toast({
-        title: "Recommandation ML reçue",
+        title: "🤖 Recommandation ML reçue",
         description: `Durée suggérée: ${Math.floor(recommendation.duree_minutes)} minutes`,
       });
     } else {
       toast({
-        title: "Erreur ML",
+        title: "❌ Erreur ML",
         description: "Impossible d'obtenir une recommandation",
         variant: "destructive"
       });
     }
   };
 
+  const connectionStatusIcon = isConnected ? 
+    <Wifi className="h-4 w-4 text-green-500" /> : 
+    <WifiOff className="h-4 w-4 text-red-500" />;
+
+  const connectionStatusText = isConnected ? 
+    'MQTT Connecté' : 
+    connectionAttempts >= maxRetries ? 
+      'Connexion échouée' : 
+      `Tentative ${connectionAttempts}/${maxRetries}`;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Arrosage Manuel</CardTitle>
+        <CardTitle>🚿 Arrosage Manuel</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Statut de connexion */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-3">
+            {connectionStatusIcon}
+            <span className="text-sm font-medium">{connectionStatusText}</span>
+          </div>
+          {!isConnected && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={retryConnection}
+              className="flex items-center space-x-2"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Retry</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Contrôle d'irrigation */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Switch 
@@ -129,16 +163,13 @@ export const ManualControl = () => {
               disabled={!isConnected}
             />
             <Label className="text-sm">
-              {isManualActive ? "Irrigation manuelle active" : "Irrigation manuelle arrêtée"}
+              {isManualActive ? "💧 Irrigation en cours" : "⏸️ Irrigation arrêtée"}
             </Label>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              isConnected ? 'bg-green-500' : 'bg-red-500'
-            }`} />
-            <span className="text-xs">
-              {isConnected ? 'MQTT Connecté' : `Tentatives: ${connectionAttempts}`}
-            </span>
+          <div className={`px-2 py-1 rounded-full text-xs ${
+            irrigationStatus ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+          }`}>
+            {irrigationStatus ? 'ACTIF' : 'INACTIF'}
           </div>
         </div>
         
@@ -175,28 +206,31 @@ export const ManualControl = () => {
           variant="outline"
           disabled={!isBackendConnected}
         >
-          Obtenir Recommandation IA
+          🤖 Obtenir Recommandation IA
         </Button>
 
         {lastMLRecommendation && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-800">Dernière Recommandation ML</h4>
+            <h4 className="font-semibold text-blue-800">🎯 Dernière Recommandation ML</h4>
             <p className="text-sm text-blue-700">
-              Durée: {Math.floor(lastMLRecommendation.duree_minutes)} minutes
+              ⏱️ Durée: {Math.floor(lastMLRecommendation.duree_minutes)} minutes
             </p>
             <p className="text-sm text-blue-700">
-              Volume: {lastMLRecommendation.volume_eau_m3?.toFixed(2)} m³
+              💧 Volume: {lastMLRecommendation.volume_eau_m3?.toFixed(2)} m³
             </p>
             <p className="text-xs text-blue-600">
-              {lastMLRecommendation.matt}
+              📝 {lastMLRecommendation.matt}
             </p>
           </div>
         )}
 
-        {!isConnected && (
-          <p className="text-sm text-orange-600">
-            ⚠️ Connexion MQTT requise pour l'irrigation
-          </p>
+        {!isConnected && connectionAttempts >= maxRetries && (
+          <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-orange-500" />
+            <p className="text-sm text-orange-700">
+              ⚠️ Impossible de se connecter au broker MQTT JHipster. Vérifiez la connexion réseau.
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>
