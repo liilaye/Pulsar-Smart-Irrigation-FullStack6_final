@@ -6,6 +6,7 @@ import { IrrigationStatus } from './IrrigationStatus';
 import { WaterChart } from './WaterChart';
 import { Recommendations } from './Recommendations';
 import { IrrigationSystemConfig } from './IrrigationSystemConfig';
+import { DeviceLocation } from './DeviceLocation';
 
 export const Dashboard = () => {
   return (
@@ -48,11 +49,14 @@ export const Dashboard = () => {
         <Recommendations />
       </section>
       
-      {/* Section Système d'Irrigation */}
+      {/* Section Système d'Irrigation avec Géolocalisation */}
       <section id="irrigation-system" className="scroll-mt-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Système d'Irrigation</h2>
-        <div className="max-w-md">
-          <IrrigationSystemConfig />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="max-w-md">
+            <IrrigationSystemConfig />
+          </div>
+          <DeviceLocation />
         </div>
       </section>
     </div>
