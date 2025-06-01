@@ -1,4 +1,3 @@
-
 export interface IrrigationRequest {
   durationHours: number;
   durationMinutes: number;
@@ -32,9 +31,10 @@ export interface BackendResponse {
 }
 
 export interface IrrigationSystem {
-  type: 'goutte-a-goutte' | 'aspersion' | 'micro-aspersion';
-  flowRate: number;
-  coverage: number;
+  type: 'goutte-a-goutte' | 'aspersion' | 'micro-aspersion' | 'tourniquet' | 'laser' | 'submersion';
+  name: string;
+  flowRate?: number;
+  coverage?: number;
 }
 
 class BackendService {
