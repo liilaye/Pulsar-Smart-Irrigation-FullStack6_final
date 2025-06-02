@@ -41,14 +41,11 @@ const Login = () => {
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
             <img 
-              src="/lovable-uploads/1b09c49e-e955-4f4f-9ddc-ee549e0c50f6.png" 
+              src="/lovable-uploads/6def057b-4ec6-4316-8956-65d39f2ffa31.png" 
               alt="PulsarInfinite Logo" 
-              className="h-16 w-auto object-contain"
+              className="h-20 w-auto object-contain"
             />
           </div>
-          <CardTitle className="text-2xl font-bold" style={{ color: '#0505FB' }}>
-            PulsarInfinite
-          </CardTitle>
           <p className="text-gray-600">Plateforme Agricole Intelligente</p>
         </CardHeader>
         <CardContent>
