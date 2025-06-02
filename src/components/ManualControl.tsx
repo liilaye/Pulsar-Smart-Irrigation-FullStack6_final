@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMQTT } from '@/hooks/useMQTT';
@@ -16,6 +15,7 @@ export const ManualControl = () => {
   const [manualDuration, setManualDuration] = useState({ hours: '1', minutes: '30' });
   const [isManualActive, setIsManualActive] = useState(false);
   const [lastMLRecommendation, setLastMLRecommendation] = useState<any>(null);
+  const [irrigationTimer, setIrrigationTimer] = useState<NodeJS.Timeout | null>(null);
   
   const { 
     publishMessage, 
@@ -30,20 +30,19 @@ export const ManualControl = () => {
   const { toast } = useToast();
 
   const toggleManualIrrigation = async (enabled: boolean) => {
+    console.log('🔄 Démarrage irrigation:', enabled);
+    
     if (enabled) {
+      // Démarrer l'irrigation
       const command = {
-        type: "JOIN",
-        fcnt: 0,
-        json: {
-          switch_relay: {
-            device: 1
-          }
-        }
+        irrigation: true,
+        duration_minutes: parseInt(manualDuration.hours) * 60 + parseInt(manualDuration.minutes),
+        timestamp: new Date().toISOString()
       };
 
-      const success = publishMessage("data/PulsarInfinite/switch_relay", JSON.stringify(command), { 
+      const success = publishMessage("irrigation/PulsarInfinite/control", JSON.stringify(command), { 
         qos: 1, 
-        retain: true 
+        retain: false 
       });
 
       if (success) {
@@ -51,36 +50,41 @@ export const ManualControl = () => {
         setManualMode(true);
         
         toast({
-          title: "🚿 Irrigation manuelle activée",
-          description: `L'arrosage démarrera pour ${manualDuration.hours}h${manualDuration.minutes}min`,
+          title: "🚿 Irrigation démarrée",
+          description: `Arrosage programmé pour ${manualDuration.hours}h${manualDuration.minutes}min`,
         });
 
+        // Programmer l'arrêt automatique
         const totalMinutes = parseInt(manualDuration.hours) * 60 + parseInt(manualDuration.minutes);
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           toggleManualIrrigation(false);
         }, totalMinutes * 60000);
+        
+        setIrrigationTimer(timer);
 
       } else {
         toast({
           title: "❌ Erreur",
-          description: "Impossible d'envoyer la commande MQTT",
+          description: "Impossible d'envoyer la commande. Vérifiez la connexion MQTT.",
           variant: "destructive"
         });
       }
     } else {
+      // Arrêter l'irrigation
       const command = {
-        type: "JOIN",
-        fcnt: 0,
-        json: {
-          switch_relay: {
-            device: 0
-          }
-        }
+        irrigation: false,
+        timestamp: new Date().toISOString()
       };
 
-      const success = publishMessage("data/PulsarInfinite/switch_relay", JSON.stringify(command), { 
+      // Annuler le timer si actif
+      if (irrigationTimer) {
+        clearTimeout(irrigationTimer);
+        setIrrigationTimer(null);
+      }
+
+      const success = publishMessage("irrigation/PulsarInfinite/control", JSON.stringify(command), { 
         qos: 1, 
-        retain: true 
+        retain: false 
       });
 
       if (success) {
@@ -88,8 +92,8 @@ export const ManualControl = () => {
         setManualMode(false);
         
         toast({
-          title: "⏹️ Irrigation manuelle désactivée",
-          description: "L'arrosage a été arrêté",
+          title: "⏹️ Irrigation arrêtée",
+          description: "L'arrosage a été interrompu",
         });
       }
     }
