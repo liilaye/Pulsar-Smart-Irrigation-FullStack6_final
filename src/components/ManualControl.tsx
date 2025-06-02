@@ -123,7 +123,7 @@ export const ManualControl = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>🚿 Arrosage Manuel</CardTitle>
+        <CardTitle>Arrosage Manuel</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConnectionStatus

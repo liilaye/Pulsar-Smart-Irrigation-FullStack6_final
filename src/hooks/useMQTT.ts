@@ -26,13 +26,13 @@ export const useMQTT = () => {
   const maxRetries = 3;
   const isConnectingRef = useRef(false);
 
-  // URLs alternatives pour JHipster broker
+  // URLs sécurisées pour JHipster broker - utiliser uniquement WSS et MQTT over TLS
   const brokerUrls = [
-    'ws://217.182.210.54:8080/',
-    'ws://217.182.210.54:9001/',
+    'wss://217.182.210.54:8083/',
     'wss://217.182.210.54:8080/',
-    'mqtt://217.182.210.54:1883',
-    'ws://217.182.210.54:8083/',
+    'mqtts://217.182.210.54:8883',
+    'wss://217.182.210.54:9001/',
+    'mqtt://localhost:1883', // Fallback pour développement local
   ];
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: 0 | 1 | 2; retain?: boolean }) => {
@@ -93,7 +93,6 @@ export const useMQTT = () => {
   }, []);
 
   const connectToMQTT = useCallback(async (urlIndex = 0) => {
-    // Éviter les connexions multiples simultanées
     if (isConnectingRef.current || connectionAttempts >= maxRetries) {
       return;
     }
@@ -106,17 +105,15 @@ export const useMQTT = () => {
 
     isConnectingRef.current = true;
     const brokerUrl = brokerUrls[urlIndex];
-    console.log(`Tentative ${connectionAttempts + 1}/${maxRetries} - URL ${urlIndex + 1}: ${brokerUrl}`);
+    console.log(`🔄 Tentative ${connectionAttempts + 1}/${maxRetries} - URL ${urlIndex + 1}: ${brokerUrl}`);
     
     setConnectionAttempts(prev => prev + 1);
-
-    // Nettoyer la connexion précédente
     cleanupConnection();
 
     const options: MQTTOptions = {
-      reconnectPeriod: 0, // Désactiver la reconnexion automatique
-      connectTimeout: 8000,
-      keepalive: 30,
+      reconnectPeriod: 0,
+      connectTimeout: 10000,
+      keepalive: 60,
       clean: true,
       resubscribe: false
     };
@@ -126,17 +123,16 @@ export const useMQTT = () => {
       clientRef.current = client;
 
       const connectTimeout = setTimeout(() => {
-        console.log('Timeout de connexion pour:', brokerUrl);
+        console.log('⏰ Timeout de connexion pour:', brokerUrl);
         cleanupConnection();
         isConnectingRef.current = false;
         
-        // Essayer l'URL suivante
         if (urlIndex + 1 < brokerUrls.length && connectionAttempts < maxRetries) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connectToMQTT(urlIndex + 1);
           }, 2000);
         }
-      }, 10000);
+      }, 12000);
 
       client.on('connect', () => {
         clearTimeout(connectTimeout);
@@ -145,9 +141,9 @@ export const useMQTT = () => {
         setConnectionAttempts(0);
         isConnectingRef.current = false;
         
-        // S'abonner aux topics
         client.subscribe('data/PulsarInfinite/switch_relay', { qos: 1 });
         client.subscribe('data/PulsarInfinite/status', { qos: 1 });
+        console.log('📡 Abonnement aux topics effectué');
       });
 
       client.on('message', (topic, message) => {
@@ -174,10 +170,9 @@ export const useMQTT = () => {
 
       client.on('error', (error) => {
         clearTimeout(connectTimeout);
-        console.error('❌ Erreur MQTT pour', brokerUrl, ':', error);
+        console.error(`❌ Erreur MQTT pour ${brokerUrl}:`, error);
         cleanupConnection();
         
-        // Essayer l'URL suivante
         if (urlIndex + 1 < brokerUrls.length && connectionAttempts < maxRetries) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connectToMQTT(urlIndex + 1);
@@ -210,8 +205,8 @@ export const useMQTT = () => {
     }
   }, [connectionAttempts, cleanupConnection]);
 
-  // Fonction pour relancer manuellement la connexion
   const retryConnection = useCallback(() => {
+    console.log('🔄 Retry manuel de la connexion');
     setConnectionAttempts(0);
     connectToMQTT();
   }, [connectToMQTT]);

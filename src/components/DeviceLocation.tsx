@@ -1,13 +1,96 @@
 
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Navigation, Wifi } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 export const DeviceLocation = () => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [mapboxToken, setMapboxToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(true);
+  
   // Coordonnées de Hann Maristes
   const deviceLocation = {
     lat: 14.7167,
     lng: -17.4677
+  };
+
+  const initializeMap = () => {
+    if (!mapContainer.current || !mapboxToken.trim()) return;
+
+    try {
+      mapboxgl.accessToken = mapboxToken;
+      
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [deviceLocation.lng, deviceLocation.lat],
+        zoom: 16,
+        pitch: 45
+      });
+
+      // Ajouter les contrôles de navigation
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      // Ajouter un marqueur pour le boîtier PulsarInfinite
+      new mapboxgl.Marker({ color: '#EF4444' })
+        .setLngLat([deviceLocation.lng, deviceLocation.lat])
+        .setPopup(
+          new mapboxgl.Popup({ offset: 25 })
+            .setHTML('<h3>Boîtier PulsarInfinite</h3><p>Système d\'irrigation connecté</p>')
+        )
+        .addTo(map.current);
+
+      // Ajouter un cercle pour la zone d'irrigation
+      map.current.on('load', () => {
+        if (!map.current) return;
+        
+        map.current.addSource('irrigation-zone', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [deviceLocation.lng, deviceLocation.lat]
+            },
+            properties: {}
+          }
+        });
+
+        map.current.addLayer({
+          id: 'irrigation-circle',
+          type: 'circle',
+          source: 'irrigation-zone',
+          paint: {
+            'circle-radius': {
+              stops: [
+                [0, 0],
+                [20, 200]
+              ],
+              base: 2
+            },
+            'circle-color': '#3B82F6',
+            'circle-opacity': 0.3,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#1D4ED8'
+          }
+        });
+      });
+
+      setShowTokenInput(false);
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation de la carte:', error);
+    }
+  };
+
+  const handleTokenSubmit = () => {
+    if (mapboxToken.trim()) {
+      initializeMap();
+    }
   };
 
   return (
@@ -19,68 +102,59 @@ export const DeviceLocation = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Carte statique de remplacement */}
-        <div className="w-full h-64 rounded-lg border bg-gradient-to-br from-green-100 to-blue-100 relative overflow-hidden">
-          {/* Fond de carte stylisé */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="w-full h-full bg-green-200 rounded-lg"></div>
-            <div className="absolute top-4 left-4 w-16 h-16 bg-blue-300 rounded-full opacity-60"></div>
-            <div className="absolute bottom-8 right-6 w-12 h-12 bg-green-300 rounded-full opacity-40"></div>
-            <div className="absolute top-12 right-8 w-8 h-8 bg-blue-400 rounded-full opacity-50"></div>
+        {showTokenInput ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700 mb-2">
+                Pour afficher la carte interactive, veuillez entrer votre token Mapbox public.
+              </p>
+              <p className="text-xs text-blue-600">
+                Obtenez votre token sur <a href="https://mapbox.com" target="_blank" rel="noopener noreferrer" className="underline">mapbox.com</a>
+              </p>
+            </div>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="pk.eyJ1IjoieW91ci11c2VybmFtZSIsImEiOiJ..."
+                value={mapboxToken}
+                onChange={(e) => setMapboxToken(e.target.value)}
+                className="flex-1"
+              />
+              <Button onClick={handleTokenSubmit}>
+                Charger la carte
+              </Button>
+            </div>
           </div>
-          
-          {/* Zone d'irrigation (cercle bleu) */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="w-20 h-20 border-4 border-blue-500 border-opacity-60 rounded-full bg-blue-100 bg-opacity-30 flex items-center justify-center">
-              {/* Marqueur du boîtier */}
-              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
+        ) : (
+          <>
+            <div ref={mapContainer} className="w-full h-64 rounded-lg" />
+            
+            <div className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Adresse:</span>
+                <span className="font-medium">Hann Maristes, Dakar</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Coordonnées:</span>
+                <span className="font-medium">{deviceLocation.lat}, {deviceLocation.lng}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">État connexion:</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium text-green-600">En ligne</span>
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Signal:</span>
+                <div className="flex items-center space-x-2">
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="font-medium text-green-600">Excellent</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          {/* Légende */}
-          <div className="absolute bottom-2 left-2 bg-white bg-opacity-90 rounded-lg p-2 text-xs">
-            <div className="flex items-center space-x-1 mb-1">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span>Boîtier PulsarInfinite</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-3 h-3 border-2 border-blue-500 rounded-full"></div>
-              <span>Zone irrigation (50m)</span>
-            </div>
-          </div>
-          
-          {/* Indicateur de direction */}
-          <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full p-2">
-            <Navigation className="h-4 w-4 text-gray-600" />
-          </div>
-        </div>
-        
-        <div className="mt-4 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Adresse:</span>
-            <span className="font-medium">Hann Maristes, Dakar</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Coordonnées:</span>
-            <span className="font-medium">{deviceLocation.lat}, {deviceLocation.lng}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">État connexion:</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium text-green-600">En ligne</span>
-            </div>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Signal:</span>
-            <div className="flex items-center space-x-2">
-              <Wifi className="h-4 w-4 text-green-500" />
-              <span className="font-medium text-green-600">Excellent</span>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
