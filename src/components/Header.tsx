@@ -27,6 +27,9 @@ export const Header = () => {
               className="h-12 w-auto object-contain"
             />
             <div>
+              <h1 className="text-lg font-bold" style={{ color: '#0505FB' }}>
+                Pulsar Smart Irrigation
+              </h1>
               <p className="text-sm text-gray-600">Plateforme Agricole Intelligente</p>
             </div>
           </div>
