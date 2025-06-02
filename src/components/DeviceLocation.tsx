@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Navigation, Wifi } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Loader } from '@googlemaps/js-api-loader';
 
 export const DeviceLocation = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(true);
+  const map = useRef<google.maps.Map | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [showKeyInput, setShowKeyInput] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Coordonnées de Hann Maristes
   const deviceLocation = {
@@ -19,77 +19,90 @@ export const DeviceLocation = () => {
     lng: -17.4677
   };
 
-  const initializeMap = () => {
-    if (!mapContainer.current || !mapboxToken.trim()) return;
+  const initializeGoogleMap = async () => {
+    if (!mapContainer.current || !apiKey.trim()) return;
 
+    setIsLoading(true);
+    
     try {
-      mapboxgl.accessToken = mapboxToken;
-      
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
-        center: [deviceLocation.lng, deviceLocation.lat],
-        zoom: 16,
-        pitch: 45
+      const loader = new Loader({
+        apiKey: apiKey,
+        version: "weekly",
+        libraries: ["maps", "marker"]
       });
 
-      // Ajouter les contrôles de navigation
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      await loader.load();
+
+      map.current = new google.maps.Map(mapContainer.current, {
+        center: deviceLocation,
+        zoom: 18,
+        mapTypeId: 'satellite',
+        tilt: 45,
+        heading: 90,
+        mapTypeControl: true,
+        streetViewControl: true,
+        fullscreenControl: true,
+        zoomControl: true
+      });
 
       // Ajouter un marqueur pour le boîtier PulsarInfinite
-      new mapboxgl.Marker({ color: '#EF4444' })
-        .setLngLat([deviceLocation.lng, deviceLocation.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 })
-            .setHTML('<h3>Boîtier PulsarInfinite</h3><p>Système d\'irrigation connecté</p>')
-        )
-        .addTo(map.current);
-
-      // Ajouter un cercle pour la zone d'irrigation
-      map.current.on('load', () => {
-        if (!map.current) return;
-        
-        map.current.addSource('irrigation-zone', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [deviceLocation.lng, deviceLocation.lat]
-            },
-            properties: {}
-          }
-        });
-
-        map.current.addLayer({
-          id: 'irrigation-circle',
-          type: 'circle',
-          source: 'irrigation-zone',
-          paint: {
-            'circle-radius': {
-              stops: [
-                [0, 0],
-                [20, 200]
-              ],
-              base: 2
-            },
-            'circle-color': '#3B82F6',
-            'circle-opacity': 0.3,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#1D4ED8'
-          }
-        });
+      const marker = new google.maps.Marker({
+        position: deviceLocation,
+        map: map.current,
+        title: 'Boîtier PulsarInfinite',
+        icon: {
+          url: 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="18" fill="#EF4444" stroke="#FFFFFF" stroke-width="4"/>
+              <circle cx="20" cy="20" r="8" fill="#FFFFFF"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 20)
+        }
       });
 
-      setShowTokenInput(false);
+      // InfoWindow pour le marqueur
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 10px;">
+            <h3 style="margin: 0 0 5px 0; color: #1f2937;">Boîtier PulsarInfinite</h3>
+            <p style="margin: 0; color: #6b7280;">Système d'irrigation connecté</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #9ca3af;">Hann Maristes, Dakar</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map.current, marker);
+      });
+
+      // Ajouter un cercle pour la zone d'irrigation
+      new google.maps.Circle({
+        strokeColor: '#1D4ED8',
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: '#3B82F6',
+        fillOpacity: 0.2,
+        map: map.current,
+        center: deviceLocation,
+        radius: 50 // 50 mètres de rayon
+      });
+
+      setShowKeyInput(false);
+      console.log('✅ Google Maps chargé avec succès');
+      
     } catch (error) {
-      console.error('Erreur lors de l\'initialisation de la carte:', error);
+      console.error('❌ Erreur lors du chargement de Google Maps:', error);
+      alert('Erreur lors du chargement de Google Maps. Vérifiez votre clé API.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      initializeMap();
+  const handleKeySubmit = () => {
+    if (apiKey.trim()) {
+      initializeGoogleMap();
     }
   };
 
@@ -102,32 +115,33 @@ export const DeviceLocation = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {showTokenInput ? (
+        {showKeyInput ? (
           <div className="space-y-4">
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700 mb-2">
-                Pour afficher la carte interactive, veuillez entrer votre token Mapbox public.
+                Pour afficher la carte Google Maps, veuillez entrer votre clé API Google Maps.
               </p>
               <p className="text-xs text-blue-600">
-                Obtenez votre token sur <a href="https://mapbox.com" target="_blank" rel="noopener noreferrer" className="underline">mapbox.com</a>
+                Obtenez votre clé API sur <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a>
               </p>
             </div>
             <div className="flex space-x-2">
               <Input
                 type="text"
-                placeholder="pk.eyJ1IjoieW91ci11c2VybmFtZSIsImEiOiJ..."
-                value={mapboxToken}
-                onChange={(e) => setMapboxToken(e.target.value)}
+                placeholder="AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
                 className="flex-1"
+                disabled={isLoading}
               />
-              <Button onClick={handleTokenSubmit}>
-                Charger la carte
+              <Button onClick={handleKeySubmit} disabled={isLoading || !apiKey.trim()}>
+                {isLoading ? 'Chargement...' : 'Charger la carte'}
               </Button>
             </div>
           </div>
         ) : (
           <>
-            <div ref={mapContainer} className="w-full h-64 rounded-lg" />
+            <div ref={mapContainer} className="w-full h-64 rounded-lg border" />
             
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
@@ -151,6 +165,10 @@ export const DeviceLocation = () => {
                   <Wifi className="h-4 w-4 text-green-500" />
                   <span className="font-medium text-green-600">Excellent</span>
                 </div>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Zone d'irrigation:</span>
+                <span className="font-medium text-blue-600">Rayon 50m</span>
               </div>
             </div>
           </>
