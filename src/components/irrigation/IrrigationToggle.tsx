@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Power, PowerOff } from 'lucide-react';
 
 interface IrrigationToggleProps {
   isManualActive: boolean;
@@ -11,21 +11,40 @@ interface IrrigationToggleProps {
 }
 
 export const IrrigationToggle = ({ isManualActive, irrigationStatus, isConnected, onToggle }: IrrigationToggleProps) => {
+  const handleClick = () => {
+    console.log('🔄 Button clicked, current state:', isManualActive);
+    onToggle(!isManualActive);
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
       <div className="flex items-center space-x-4">
-        <Switch 
-          checked={isManualActive}
-          onCheckedChange={(checked) => {
-            console.log('🔄 Switch toggled:', checked);
-            onToggle(checked);
-          }}
+        <Button
+          onClick={handleClick}
           disabled={!isConnected}
-          className="data-[state=checked]:bg-blue-600"
-        />
-        <Label className="text-sm font-medium cursor-pointer" htmlFor="irrigation-switch">
+          variant={isManualActive ? "destructive" : "default"}
+          className={`flex items-center space-x-2 ${
+            isManualActive 
+              ? 'bg-red-600 hover:bg-red-700' 
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
+        >
+          {isManualActive ? (
+            <>
+              <PowerOff className="h-4 w-4" />
+              <span>ÉTEINDRE</span>
+            </>
+          ) : (
+            <>
+              <Power className="h-4 w-4" />
+              <span>ALLUMER</span>
+            </>
+          )}
+        </Button>
+        
+        <div className="text-sm font-medium">
           {isManualActive ? "💧 Irrigation activée" : "⏸️ Irrigation désactivée"}
-        </Label>
+        </div>
       </div>
       
       <div className="flex items-center space-x-2">
