@@ -13,6 +13,7 @@ interface IrrigationToggleProps {
 export const IrrigationToggle = ({ isManualActive, irrigationStatus, isConnected, onToggle }: IrrigationToggleProps) => {
   const handleClick = () => {
     console.log('🔄 Button clicked, current state:', isManualActive);
+    console.log('🌐 MQTT Connected:', isConnected);
     onToggle(!isManualActive);
   };
 
@@ -32,12 +33,12 @@ export const IrrigationToggle = ({ isManualActive, irrigationStatus, isConnected
           {isManualActive ? (
             <>
               <PowerOff className="h-4 w-4" />
-              <span>ÉTEINDRE</span>
+              <span>ARRÊTER</span>
             </>
           ) : (
             <>
               <Power className="h-4 w-4" />
-              <span>ALLUMER</span>
+              <span>DÉCLENCHER ARROSAGE</span>
             </>
           )}
         </Button>

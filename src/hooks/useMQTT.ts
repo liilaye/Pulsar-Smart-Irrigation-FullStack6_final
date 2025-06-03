@@ -25,13 +25,19 @@ export const useMQTT = () => {
   ];
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: 0 | 1 | 2; retain?: boolean }) => {
+    console.log('📤 Tentative de publication...');
+    console.log('🌐 Statut connexion MQTT:', isConnected);
+    console.log('🔗 Client MQTT existe:', !!clientRef.current);
+    
     if (!isConnected || !clientRef.current) {
-      console.error('❌ Non connecté au broker MQTT');
+      console.error('❌ Non connecté au broker MQTT - isConnected:', isConnected, 'client:', !!clientRef.current);
       return false;
     }
 
     try {
-      console.log(`📤 Publication sur ${topic}:`, message);
+      console.log(`📤 Publication sur topic: ${topic}`);
+      console.log('📤 Message à publier:', message);
+      console.log('📤 Options:', { qos: options?.qos || 1, retain: options?.retain || false });
       
       clientRef.current.publish(topic, message, {
         qos: (options?.qos || 1) as 0 | 1 | 2,
@@ -40,7 +46,7 @@ export const useMQTT = () => {
         if (error) {
           console.error('❌ Erreur lors de la publication:', error);
         } else {
-          console.log('✅ Message publié avec succès');
+          console.log('✅ Message publié avec succès sur le broker!');
           const newMessage = { topic, message };
           setMessages(prev => [...prev.slice(-9), newMessage]);
         }
@@ -48,12 +54,13 @@ export const useMQTT = () => {
       
       return true;
     } catch (error) {
-      console.error('❌ Erreur lors de la publication:', error);
+      console.error('❌ Exception lors de la publication:', error);
       return false;
     }
   }, [isConnected]);
 
   const setManualMode = useCallback((mode: boolean) => {
+    console.log('🔄 Changement mode manuel:', mode);
     setIsManualMode(mode);
   }, []);
 
@@ -91,6 +98,7 @@ export const useMQTT = () => {
       });
 
       clientRef.current = client;
+      console.log('🔗 Client MQTT créé pour:', brokerUrl);
 
       const connectTimeout = setTimeout(() => {
         console.log('⏰ Timeout de connexion pour:', brokerUrl);
@@ -102,12 +110,14 @@ export const useMQTT = () => {
       client.on('connect', () => {
         clearTimeout(connectTimeout);
         console.log('✅ Connecté au broker MQTT:', brokerUrl);
+        console.log('🎯 Prêt à publier des messages!');
         setIsConnected(true);
         setConnectionAttempts(0);
         
         // S'abonner aux topics
         client.subscribe('irrigation/PulsarInfinite/status', { qos: 1 });
         client.subscribe('irrigation/PulsarInfinite/control', { qos: 1 });
+        client.subscribe('data/PulsarInfinite/swr', { qos: 1 }); // Ajout du topic principal
         console.log('📡 Abonnement aux topics effectué');
       });
 
@@ -164,9 +174,11 @@ export const useMQTT = () => {
   }, [connectToMQTT]);
 
   useEffect(() => {
+    console.log('🚀 Initialisation du hook MQTT');
     connectToMQTT();
     
     return () => {
+      console.log('🧹 Nettoyage du hook MQTT');
       if (clientRef.current) {
         try {
           clientRef.current.removeAllListeners();

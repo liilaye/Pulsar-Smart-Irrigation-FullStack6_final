@@ -29,7 +29,8 @@ export const ManualControl = () => {
   const { toast } = useToast();
 
   const toggleManualIrrigation = async (enabled: boolean) => {
-    console.log('🔄 Toggle irrigation:', enabled);
+    console.log('🔄 Toggle irrigation demandé:', enabled);
+    console.log('🌐 État connexion MQTT:', isConnected);
     
     // Créer le message JSON selon le format spécifié
     const command = {
@@ -51,24 +52,33 @@ export const ManualControl = () => {
       }
     };
 
-    console.log('📤 Envoi commande:', JSON.stringify(command, null, 2));
+    const topic = "data/PulsarInfinite/swr";
+    const messageStr = JSON.stringify(command);
+    
+    console.log('📤 Envoi vers topic:', topic);
+    console.log('📤 Commande complète:', messageStr);
 
-    const success = publishMessage("data/PulsarInfinite/swr", JSON.stringify(command), { 
+    const success = publishMessage(topic, messageStr, { 
       qos: 1, 
       retain: true 
     });
+
+    console.log('📤 Résultat de publishMessage:', success);
 
     if (success) {
       setIsManualActive(enabled);
       setManualMode(enabled);
       
       toast({
-        title: enabled ? "🚿 Irrigation démarrée" : "⏹️ Irrigation arrêtée",
+        title: enabled ? "🚿 Commande envoyée" : "⏹️ Commande envoyée",
         description: enabled ? 
-          `Device activé (device: 1)` : 
-          `Device désactivé (device: 0)`,
+          `Device activé (device: 1) vers ${topic}` : 
+          `Device désactivé (device: 0) vers ${topic}`,
       });
+      
+      console.log('✅ État local mis à jour - isManualActive:', enabled);
     } else {
+      console.error('❌ Échec de l\'envoi de la commande');
       toast({
         title: "❌ Erreur",
         description: "Impossible d'envoyer la commande. Vérifiez la connexion MQTT.",
