@@ -28,9 +28,9 @@ export const Header = () => {
             />
             <div>
               <h1 className="text-lg font-bold" style={{ color: '#0505FB' }}>
-                Pulsar Smart Irrigation
+                Pulsar-Infinite
               </h1>
-              <p className="text-sm text-gray-600">Plateforme Agricole Intelligente</p>
+              <p className="text-sm text-gray-600">Pulsar Smart Irrigation - Plateforme Agricole Intelligente</p>
             </div>
           </div>
         </div>

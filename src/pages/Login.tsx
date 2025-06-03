@@ -47,11 +47,11 @@ const Login = () => {
             />
             <div>
               <h1 className="text-xl font-bold" style={{ color: '#0505FB' }}>
-                Pulsar Smart Irrigation
+                Pulsar-Infinite
               </h1>
             </div>
           </div>
-          <p className="text-gray-600">Plateforme Agricole Intelligente</p>
+          <p className="text-gray-600">Pulsar Smart Irrigation - Plateforme Agricole Intelligente</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
