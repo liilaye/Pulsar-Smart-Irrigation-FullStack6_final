@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import mqtt from 'mqtt';
 
@@ -18,15 +19,15 @@ export const useMQTT = () => {
 
   // Configuration pour votre broker JHipster spécifique
   const brokerConfig = {
-    url: 'ws://217.182.210.54:8080/mqtt', // WebSocket endpoint pour JHipster
+    url: 'ws://217.182.210.54:8080/mqtt',
     options: {
       connectTimeout: 15000,
       keepalive: 30,
       clean: true,
       reconnectPeriod: 5000,
-      username: 'infinite', // Remplacez par vos identifiants
-      password: 'infinite_password', // Remplacez par votre mot de passe
-      protocolVersion: 4,
+      username: 'infinite',
+      password: 'infinite_password',
+      protocolVersion: 4 as const, // Fix: utiliser 'as const' pour le type literal
       clientId: `pulsar_web_${Math.random().toString(16).substr(2, 8)}`
     }
   };
@@ -53,7 +54,7 @@ export const useMQTT = () => {
 
     try {
       const publishOptions = {
-        qos: (options?.qos || 1) as 0 | 1 | 2,
+        qos: (options?.qos || 1) as 0 | 1 | 2, // Fix: cast explicite pour QoS
         retain: options?.retain || false
       };
       
@@ -127,10 +128,10 @@ export const useMQTT = () => {
         
         // S'abonner aux topics avec QoS approprié
         const subscriptions = [
-          { topic: topics.status, qos: 1 },
-          { topic: topics.control, qos: 1 },
-          { topic: topics.data, qos: 0 },
-          { topic: 'infinite/+/+', qos: 0 } // Wildcard pour tous les topics infinite
+          { topic: topics.status, qos: 1 as const },
+          { topic: topics.control, qos: 1 as const },
+          { topic: topics.data, qos: 0 as const },
+          { topic: 'infinite/+/+', qos: 0 as const }
         ];
 
         subscriptions.forEach(sub => {
@@ -250,6 +251,7 @@ export const useMQTT = () => {
     updateIrrigationFromBackend,
     retryConnection,
     maxRetries,
-    topics // Exposer les topics pour utilisation dans les composants
+    topics
   };
 };
+
