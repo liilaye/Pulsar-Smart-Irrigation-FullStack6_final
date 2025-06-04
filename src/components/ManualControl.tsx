@@ -23,79 +23,65 @@ export const ManualControl = () => {
     irrigationStatus, 
     connectionAttempts,
     retryConnection,
-    maxRetries,
-    topics
+    maxRetries
   } = useMQTT();
   const { isBackendConnected } = useBackendSync();
   const { toast } = useToast();
 
   const toggleManualIrrigation = async (enabled: boolean) => {
-    console.log('🔄 [CONTROL] Toggle irrigation demandé:', enabled);
-    console.log('🌐 [CONTROL] État connexion MQTT:', isConnected);
+    console.log('🔄 Toggle irrigation demandé:', enabled);
+    console.log('🌐 État connexion MQTT:', isConnected);
     
-    // Message pour le broker JHipster Infinite
-    const relayCommand = {
-      deviceId: "PulsarInfinite",
-      command: "SET_RELAY",
-      value: enabled ? 1 : 0,
-      timestamp: new Date().toISOString(),
-      source: "web_interface"
+    // Créer le message JSON selon le format spécifié
+    const command = {
+      type: "JOIN",
+      fcnt: 0,
+      json: {
+        switch_relay: {
+          device: enabled ? 1 : 0
+        }
+      },
+      mqttHeaders: {
+        mqtt_receivedRetained: "false",
+        mqtt_id: "0",
+        mqtt_duplicate: "false",
+        id: crypto.randomUUID(),
+        mqtt_receivedTopic: "data/PulsarInfinite/swr",
+        mqtt_receivedQos: "0",
+        timestamp: Date.now().toString()
+      }
     };
 
-    // Commande simple pour compatibilité
-    const simpleCommand = enabled ? "ON" : "OFF";
+    const topic = "data/PulsarInfinite/swr";
+    const messageStr = JSON.stringify(command);
     
-    console.log('📤 [CONTROL] Commande relay:', relayCommand);
-    console.log('📤 [CONTROL] Topic:', topics.control);
+    console.log('📤 Envoi vers topic:', topic);
+    console.log('📤 Commande complète:', messageStr);
 
-    // Essayer d'abord avec la commande JSON structurée
-    let success = publishMessage(topics.control, JSON.stringify(relayCommand), { 
+    const success = publishMessage(topic, messageStr, { 
       qos: 1, 
       retain: true 
     });
 
-    // Si échec, essayer avec commande simple
-    if (!success) {
-      console.log('📤 [CONTROL] Retry avec commande simple');
-      success = publishMessage(topics.commands, simpleCommand, { 
-        qos: 1, 
-        retain: false 
-      });
-    }
-
-    // Publier aussi sur le topic de données pour compatibilité
-    if (success) {
-      const dataMessage = {
-        relay_state: enabled ? 1 : 0,
-        manual_mode: true,
-        timestamp: Date.now()
-      };
-      
-      publishMessage(topics.data, JSON.stringify(dataMessage), { 
-        qos: 0, 
-        retain: false 
-      });
-    }
-
-    console.log('📤 [CONTROL] Résultat publication:', success);
+    console.log('📤 Résultat de publishMessage:', success);
 
     if (success) {
       setIsManualActive(enabled);
       setManualMode(enabled);
       
       toast({
-        title: enabled ? "🚿 Arrosage déclenché" : "⏹️ Arrosage arrêté",
+        title: enabled ? "🚿 Commande envoyée" : "⏹️ Commande envoyée",
         description: enabled ? 
-          `Commande envoyée sur ${topics.control}` : 
-          `Arrêt envoyé sur ${topics.control}`,
+          `Device activé (device: 1) vers ${topic}` : 
+          `Device désactivé (device: 0) vers ${topic}`,
       });
       
-      console.log('✅ [CONTROL] État local mis à jour - isManualActive:', enabled);
+      console.log('✅ État local mis à jour - isManualActive:', enabled);
     } else {
-      console.error('❌ [CONTROL] Échec de l\'envoi de la commande');
+      console.error('❌ Échec de l\'envoi de la commande');
       toast({
         title: "❌ Erreur",
-        description: "Impossible d'envoyer la commande. Vérifiez la connexion MQTT JHipster.",
+        description: "Impossible d'envoyer la commande. Vérifiez la connexion MQTT.",
         variant: "destructive"
       });
     }
