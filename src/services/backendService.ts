@@ -1,4 +1,3 @@
-
 export interface IrrigationRequest {
   durationHours: number;
   durationMinutes: number;
@@ -24,6 +23,8 @@ export interface IrrigationSystem {
   name: string;
 }
 
+import { irrigationDataService } from './irrigationDataService';
+
 class BackendService {
   private baseUrl = 'http://localhost:5002/api';
 
@@ -46,6 +47,18 @@ class BackendService {
 
       const data = await response.json();
       console.log('✅ Réponse ML Flask reçue:', data);
+      
+      // Enregistrer les données d'irrigation pour le graphique
+      if (data.status === 'ok') {
+        irrigationDataService.addIrrigationData({
+          timestamp: new Date().toISOString(),
+          volume_m3: data.volume_eau_m3,
+          duree_minutes: data.duree_minutes,
+          source: 'ML',
+          status: data.status
+        });
+      }
+      
       return data;
     } catch (error) {
       console.error('❌ Erreur requête ML Flask:', error);
@@ -71,6 +84,21 @@ class BackendService {
 
       const data = await response.json();
       console.log('✅ Réponse irrigation manuelle Flask:', data);
+      
+      // Enregistrer les données d'irrigation manuelle pour le graphique
+      if (data.success) {
+        const totalMinutes = (durationHours * 60) + durationMinutes;
+        const estimatedVolume = (totalMinutes * 20) / 1000; // Estimation basée sur débit 20L/min
+        
+        irrigationDataService.addIrrigationData({
+          timestamp: new Date().toISOString(),
+          volume_m3: estimatedVolume,
+          duree_minutes: totalMinutes,
+          source: 'MANUAL',
+          status: 'ok'
+        });
+      }
+      
       return data;
     } catch (error) {
       console.error('❌ Erreur irrigation manuelle Flask:', error);

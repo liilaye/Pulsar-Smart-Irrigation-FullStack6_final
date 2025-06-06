@@ -4,47 +4,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMQTT } from '@/hooks/useMQTT';
-
-// Données simulées pour les différentes périodes
-const generateDailyData = () => {
-  const data = [];
-  for (let i = 0; i < 24; i++) {
-    data.push({
-      time: `${i.toString().padStart(2, '0')}:00`,
-      quantity: Math.random() * 0.5 + 0.1 // 0.1 à 0.6 m³
-    });
-  }
-  return data;
-};
-
-const generateWeeklyData = () => {
-  return [
-    { time: 'Lun', quantity: 2.8 },
-    { time: 'Mar', quantity: 3.2 },
-    { time: 'Mer', quantity: 2.1 },
-    { time: 'Jeu', quantity: 3.8 },
-    { time: 'Ven', quantity: 2.9 },
-    { time: 'Sam', quantity: 1.5 },
-    { time: 'Dim', quantity: 2.2 },
-  ];
-};
-
-const generateMonthlyData = () => {
-  return [
-    { time: 'S1', quantity: 15.2 },
-    { time: 'S2', quantity: 18.1 },
-    { time: 'S3', quantity: 12.8 },
-    { time: 'S4', quantity: 16.5 },
-  ];
-};
+import { irrigationDataService, DailyIrrigationData, WeeklyIrrigationData, MonthlyIrrigationData } from '@/services/irrigationDataService';
 
 export const WaterChart = () => {
-  const [dailyData, setDailyData] = useState(generateDailyData());
+  const [dailyData, setDailyData] = useState<DailyIrrigationData[]>([]);
+  const [weeklyData, setWeeklyData] = useState<WeeklyIrrigationData[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyIrrigationData[]>([]);
+  const [isRealTimeActive, setIsRealTimeActive] = useState(false);
   const { irrigationStatus } = useMQTT();
 
-  // Simulation de mise à jour en temps réel
   useEffect(() => {
-    if (irrigationStatus) {
+    // Initialiser avec les données existantes
+    const chartData = irrigationDataService.generateChartData();
+    setDailyData(chartData.daily);
+    setWeeklyData(chartData.weekly);
+    setMonthlyData(chartData.monthly);
+
+    // S'abonner aux mises à jour de données
+    const unsubscribe = irrigationDataService.subscribe((newChartData) => {
+      console.log('📊 Mise à jour graphique avec nouvelles données:', newChartData);
+      setDailyData(newChartData.daily);
+      setWeeklyData(newChartData.weekly);
+      setMonthlyData(newChartData.monthly);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    setIsRealTimeActive(irrigationStatus);
+  }, [irrigationStatus]);
+
+  // Simulation de mise à jour en temps réel pendant l'irrigation active
+  useEffect(() => {
+    if (isRealTimeActive) {
       const interval = setInterval(() => {
         setDailyData(prevData => {
           const newData = [...prevData];
@@ -54,25 +47,30 @@ export const WaterChart = () => {
           if (currentIndex !== -1) {
             newData[currentIndex] = {
               ...newData[currentIndex],
-              quantity: newData[currentIndex].quantity + 0.01 // Augmentation progressive
+              quantity: newData[currentIndex].quantity + 0.001 // Simulation progression
             };
           }
           
           return newData;
         });
-      }, 5000); // Mise à jour toutes les 5 secondes
+      }, 5000);
 
       return () => clearInterval(interval);
     }
-  }, [irrigationStatus]);
-
-  const weeklyData = generateWeeklyData();
-  const monthlyData = generateMonthlyData();
+  }, [isRealTimeActive]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quantité d'Eau Utilisée</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Quantité d'Eau Utilisée</span>
+          {isRealTimeActive && (
+            <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
+              Temps réel
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="daily" className="w-full">
@@ -96,7 +94,7 @@ export const WaterChart = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <Tooltip 
-                  formatter={(value) => [`${Number(value).toFixed(2)} m³`, 'Quantité']}
+                  formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']}
                   labelFormatter={(label) => `Heure: ${label}`}
                 />
                 <Line 
@@ -110,9 +108,9 @@ export const WaterChart = () => {
               </LineChart>
             </ResponsiveContainer>
             <p className="text-sm text-gray-600 mt-2">
-              Quantité en mètres cubes par heure
-              {irrigationStatus && (
-                <span className="text-blue-600 font-medium"> - Mise à jour en temps réel</span>
+              Quantité d'eau utilisée par heure (données réelles Flask)
+              {isRealTimeActive && (
+                <span className="text-blue-600 font-medium"> - Irrigation en cours</span>
               )}
             </p>
           </TabsContent>
@@ -125,7 +123,7 @@ export const WaterChart = () => {
                 <YAxis 
                   label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip formatter={(value) => [`${value} m³`, 'Quantité']} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']} />
                 <Line 
                   type="monotone" 
                   dataKey="quantity" 
@@ -135,7 +133,7 @@ export const WaterChart = () => {
                 />
               </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité en mètres cubes par jour</p>
+            <p className="text-sm text-gray-600 mt-2">Quantité d'eau utilisée par jour</p>
           </TabsContent>
           
           <TabsContent value="monthly" className="mt-4">
@@ -146,7 +144,7 @@ export const WaterChart = () => {
                 <YAxis 
                   label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip formatter={(value) => [`${value} m³`, 'Quantité']} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']} />
                 <Line 
                   type="monotone" 
                   dataKey="quantity" 
@@ -156,7 +154,7 @@ export const WaterChart = () => {
                 />
               </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité en mètres cubes par semaine</p>
+            <p className="text-sm text-gray-600 mt-2">Quantité d'eau utilisée par semaine</p>
           </TabsContent>
         </Tabs>
       </CardContent>
