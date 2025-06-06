@@ -96,3 +96,46 @@ def irrigation_status():
         })
     except Exception as e:
         return jsonify({"isActive": False, "message": str(e)}), 500
+
+@irrigation_bp.route('/irrigation/system', methods=['POST'])
+def irrigation_system():
+    """Configuration du système d'irrigation"""
+    try:
+        data = request.get_json()
+        system_type = data.get('systemType')
+        
+        if not system_type:
+            return jsonify({"success": False, "message": "Type de système manquant"}), 400
+        
+        # Log de la configuration
+        log_irrigation("SYSTEM_CONFIG", None, None, f"SYSTEM_{system_type}", "config")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Système d'irrigation configuré: {system_type}"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@irrigation_bp.route('/irrigation/schedule', methods=['POST'])
+def irrigation_schedule():
+    """Configuration du planning d'irrigation"""
+    try:
+        data = request.get_json()
+        schedules = data.get('schedules')
+        
+        if not schedules:
+            return jsonify({"success": False, "message": "Planning manquant"}), 400
+        
+        # Log du planning
+        enabled_days = [day for day, config in schedules.items() if config.get('enabled')]
+        log_irrigation("SCHEDULE_CONFIG", None, None, f"SCHEDULE_{len(enabled_days)}_days", "config")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Planning configuré pour {len(enabled_days)} jours"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500

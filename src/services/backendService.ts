@@ -19,6 +19,11 @@ export interface BackendResponse {
   data?: any;
 }
 
+export interface IrrigationSystem {
+  type: string;
+  name: string;
+}
+
 class BackendService {
   private baseUrl = 'http://localhost:5002/api';
 
@@ -120,6 +125,46 @@ class BackendService {
     } catch (error) {
       console.error('❌ Erreur statut irrigation Flask:', error);
       return null;
+    }
+  }
+
+  async updateIrrigationSystem(systemType: string): Promise<BackendResponse> {
+    try {
+      console.log('🔧 Mise à jour système irrigation via Flask...');
+      const response = await fetch(`${this.baseUrl}/irrigation/system`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ systemType })
+      });
+
+      const data = await response.json();
+      console.log('✅ Réponse système irrigation Flask:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur système irrigation Flask:', error);
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
+    }
+  }
+
+  async sendSchedulesToBackend(schedules: any): Promise<BackendResponse> {
+    try {
+      console.log('📅 Envoi planning vers Flask backend...');
+      const response = await fetch(`${this.baseUrl}/irrigation/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ schedules })
+      });
+
+      const data = await response.json();
+      console.log('✅ Réponse planning Flask:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur planning Flask:', error);
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
