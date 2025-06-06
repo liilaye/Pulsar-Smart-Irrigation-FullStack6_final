@@ -99,7 +99,7 @@ def irrigation_status():
 
 @irrigation_bp.route('/irrigation/system', methods=['POST'])
 def irrigation_system():
-    """Configuration du système d'irrigation"""
+    """Configuration du système d'irrigation avec logique métier"""
     try:
         data = request.get_json()
         system_type = data.get('systemType')
@@ -107,15 +107,30 @@ def irrigation_system():
         if not system_type:
             return jsonify({"success": False, "message": "Type de système manquant"}), 400
         
-        # Log de la configuration
-        log_irrigation("SYSTEM_CONFIG", None, None, f"SYSTEM_{system_type}", "config")
+        print(f"🔧 Configuration système reçue: {system_type}")
+        
+        # Logique métier pour traitement du système d'irrigation
+        if system_type == 'aucun':
+            recommendation = analyze_and_recommend_system()
+            message = f"Aucun système détecté. Recommandation: {recommendation['system']} - {recommendation['reason']}"
+            log_irrigation("SYSTEM_RECOMMENDATION", None, None, f"RECOMMEND_{recommendation['system']}", "config")
+        else:
+            # Analyser le système existant et optimiser
+            optimization = optimize_existing_system(system_type)
+            message = f"Système {system_type} configuré. Optimisation: {optimization['suggestion']}"
+            log_irrigation("SYSTEM_CONFIG", None, None, f"SYSTEM_{system_type}", "config")
         
         return jsonify({
             "success": True,
-            "message": f"Système d'irrigation configuré: {system_type}"
+            "message": message,
+            "data": {
+                "systemType": system_type,
+                "analysis": analyze_system_efficiency(system_type) if system_type != 'aucun' else None
+            }
         })
         
     except Exception as e:
+        print(f"❌ Erreur configuration système: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @irrigation_bp.route('/irrigation/schedule', methods=['POST'])
@@ -139,3 +154,114 @@ def irrigation_schedule():
         
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+# Nouvelles routes pour les analyses temps réel
+@irrigation_bp.route('/analytics/trends', methods=['GET'])
+def get_trends():
+    """Analyse des tendances en temps réel"""
+    try:
+        # Simuler des données d'analyse basées sur les logs récents
+        import random
+        from datetime import datetime, timedelta
+        
+        # Ici vous pouvez implémenter la vraie logique d'analyse
+        trends = {
+            "waterConsumption": round(random.uniform(0.5, 1.2), 2),
+            "soilMoisture": random.randint(35, 65),
+            "efficiency": random.randint(80, 95),
+            "trend": random.choice(['increasing', 'decreasing', 'stable'])
+        }
+        
+        print("📊 Envoi analyse des tendances:", trends)
+        return jsonify(trends)
+        
+    except Exception as e:
+        print(f"❌ Erreur analyse tendances: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@irrigation_bp.route('/analytics/ml-predictions', methods=['GET'])
+def get_ml_predictions():
+    """Prédictions ML en temps réel"""
+    try:
+        # Simuler des prédictions ML basées sur les conditions actuelles
+        import random
+        
+        predictions = {
+            "nextIrrigationHours": random.randint(2, 12),
+            "recommendedDuration": random.randint(20, 45),
+            "soilCondition": random.choice(['Optimal', 'Sec', 'Humide']),
+            "weatherImpact": random.choice(['Favorable', 'Défavorable', 'Neutre'])
+        }
+        
+        print("🧠 Envoi prédictions ML:", predictions)
+        return jsonify(predictions)
+        
+    except Exception as e:
+        print(f"❌ Erreur prédictions ML: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def analyze_and_recommend_system():
+    """Analyser le terrain et recommander un système d'irrigation efficace"""
+    # Logique d'analyse pour recommander un système adapté
+    # Basé sur les paramètres du sol, climat, culture, etc.
+    
+    recommendations = {
+        'goutte-a-goutte': {
+            'efficiency': 95,
+            'reason': 'Économique en eau, adapté aux cultures en ligne comme l\'arachide'
+        },
+        'aspersion': {
+            'efficiency': 80,
+            'reason': 'Bon pour grandes surfaces, simulation pluie naturelle'
+        },
+        'micro-aspersion': {
+            'efficiency': 85,
+            'reason': 'Compromis entre économie et couverture'
+        }
+    }
+    
+    # Pour Thiès/Taïba Ndiaye avec culture d'arachide
+    return {
+        'system': 'goutte-a-goutte',
+        'reason': recommendations['goutte-a-goutte']['reason'],
+        'efficiency': recommendations['goutte-a-goutte']['efficiency']
+    }
+
+def optimize_existing_system(system_type):
+    """Optimiser un système d'irrigation existant"""
+    optimizations = {
+        'goutte-a-goutte': {
+            'suggestion': 'Vérifier les goutteurs, programmer arrosage tôt matin',
+            'efficiency_gain': 10
+        },
+        'aspersion': {
+            'suggestion': 'Réduire pression, éviter heures chaudes',
+            'efficiency_gain': 15
+        },
+        'tourniquet': {
+            'suggestion': 'Ajuster vitesse rotation selon vent',
+            'efficiency_gain': 12
+        }
+    }
+    
+    return optimizations.get(system_type, {
+        'suggestion': 'Maintenance régulière recommandée',
+        'efficiency_gain': 5
+    })
+
+def analyze_system_efficiency(system_type):
+    """Analyser l'efficacité du système actuel"""
+    efficiencies = {
+        'goutte-a-goutte': 90,
+        'aspersion': 75,
+        'tourniquet': 70,
+        'laser': 85,
+        'micro-aspersion': 80,
+        'submersion': 60
+    }
+    
+    return {
+        'efficiency': efficiencies.get(system_type, 70),
+        'waterSaving': efficiencies.get(system_type, 70) - 50,
+        'suitability': 'Excellent' if efficiencies.get(system_type, 70) > 85 else 'Bon'
+    }

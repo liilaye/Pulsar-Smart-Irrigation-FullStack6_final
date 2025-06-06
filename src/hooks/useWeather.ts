@@ -13,10 +13,11 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' = 'thies') => {
       setError(null);
       
       try {
-        const data = await weatherService.getWeatherData(location);
+        // Essayer d'abord les données temps réel
+        const data = await weatherService.getRealTimeWeatherData(location);
         setWeatherData(data);
       } catch (err) {
-        setError('Erreur lors du chargement des données météo');
+        setError('Erreur lors du chargement des données météo temps réel');
         console.error('Weather fetch error:', err);
       } finally {
         setIsLoading(false);
@@ -25,8 +26,8 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' = 'thies') => {
 
     fetchWeather();
     
-    // Actualiser toutes les 10 minutes
-    const interval = setInterval(fetchWeather, 10 * 60 * 1000);
+    // Actualiser toutes les 2 minutes pour le temps réel
+    const interval = setInterval(fetchWeather, 2 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [location]);
