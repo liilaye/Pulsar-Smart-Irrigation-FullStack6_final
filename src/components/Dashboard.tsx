@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { QuickControl } from './QuickControl';
 import { AgroClimateParams } from './AgroClimateParams';
@@ -7,6 +6,7 @@ import { WaterChart } from './WaterChart';
 import { Recommendations } from './Recommendations';
 import { IrrigationSystemConfig } from './IrrigationSystemConfig';
 import { DeviceLocation } from './DeviceLocation';
+import { BackendConnectionStatus } from './BackendConnectionStatus';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Brain, Cloud } from 'lucide-react';
 import { backendService, TrendAnalysis, MLPredictionAnalysis } from '@/services/backendService';
@@ -41,6 +41,11 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8">
+      {/* Section Statut Backend */}
+      <section className="mb-6">
+        <BackendConnectionStatus />
+      </section>
+      
       {/* Section Tableau de bord principal */}
       <section id="dashboard" className="scroll-mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
