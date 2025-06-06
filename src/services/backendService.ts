@@ -1,3 +1,4 @@
+
 export interface IrrigationRequest {
   durationHours: number;
   durationMinutes: number;
@@ -12,38 +13,18 @@ export interface MLPrediction {
   status: string;
 }
 
-export interface SoilClimateData {
-  features: number[];
-}
-
-export interface ScheduleData {
-  [day: string]: {
-    enabled: boolean;
-    startTime: string;
-    endTime: string;
-  };
-}
-
 export interface BackendResponse {
   success: boolean;
   message: string;
   data?: any;
 }
 
-export interface IrrigationSystem {
-  type: 'goutte-a-goutte' | 'aspersion' | 'micro-aspersion' | 'tourniquet' | 'laser' | 'submersion';
-  name: string;
-  flowRate?: number;
-  coverage?: number;
-}
-
 class BackendService {
-  private baseUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://your-deployed-api.com/api' 
-    : 'http://localhost:5002';
+  private baseUrl = 'http://localhost:5002/api';
 
   async getMLRecommendation(soilClimateFeatures: number[]): Promise<MLPrediction | null> {
     try {
+      console.log('🤖 Envoi requête ML vers Flask backend...');
       const response = await fetch(`${this.baseUrl}/arroser`, {
         method: 'POST',
         headers: {
@@ -59,37 +40,17 @@ class BackendService {
       }
 
       const data = await response.json();
-      console.log('Réponse ML reçue:', data);
+      console.log('✅ Réponse ML Flask reçue:', data);
       return data;
     } catch (error) {
-      console.error('Erreur lors de la requête ML:', error);
+      console.error('❌ Erreur requête ML Flask:', error);
       return null;
     }
   }
 
-  async sendSchedulesToBackend(schedules: ScheduleData, irrigationSystem?: string): Promise<BackendResponse> {
+  async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/schedules`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          schedules,
-          irrigationSystem,
-          timestamp: new Date().toISOString()
-        }),
-      });
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi des plannings:', error);
-      return { success: false, message: 'Erreur de connexion au backend Flask' };
-    }
-  }
-
-  async startManualIrrigation(durationHours: number, durationMinutes: number, irrigationSystem?: string): Promise<BackendResponse> {
-    try {
+      console.log('🚿 Démarrage irrigation manuelle via Flask...');
       const response = await fetch(`${this.baseUrl}/irrigation/manual`, {
         method: 'POST',
         headers: {
@@ -99,34 +60,54 @@ class BackendService {
           durationHours,
           durationMinutes,
           scheduledBy: 'MANUAL',
-          irrigationSystem,
           timestamp: new Date().toISOString()
         }),
       });
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Réponse irrigation manuelle Flask:', data);
+      return data;
     } catch (error) {
-      console.error('Erreur lors du démarrage manuel:', error);
+      console.error('❌ Erreur irrigation manuelle Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
-  async updateIrrigationSystem(system: string): Promise<BackendResponse> {
+  async stopIrrigation(): Promise<BackendResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/irrigation/system`, {
+      console.log('⏹️ Arrêt irrigation via Flask...');
+      const response = await fetch(`${this.baseUrl}/irrigation/stop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      console.log('✅ Réponse arrêt irrigation Flask:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur arrêt irrigation Flask:', error);
+      return { success: false, message: 'Erreur de connexion au backend Flask' };
+    }
+  }
+
+  async sendMQTTCommand(device: 0 | 1): Promise<BackendResponse> {
+    try {
+      console.log(`📡 Envoi commande MQTT via Flask: device=${device}`);
+      const response = await fetch(`${this.baseUrl}/mqtt/command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          irrigationSystem: system,
-          timestamp: new Date().toISOString()
-        }),
+        body: JSON.stringify({ device })
       });
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Réponse commande MQTT Flask:', data);
+      return data;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du système:', error);
+      console.error('❌ Erreur commande MQTT Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
@@ -134,9 +115,10 @@ class BackendService {
   async getIrrigationStatus(): Promise<any> {
     try {
       const response = await fetch(`${this.baseUrl}/irrigation/status`);
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error('Erreur lors de la récupération du statut:', error);
+      console.error('❌ Erreur statut irrigation Flask:', error);
       return null;
     }
   }
@@ -144,19 +126,21 @@ class BackendService {
   // Données d'exemple pour les paramètres agro-climatiques
   getDefaultSoilClimateFeatures(): number[] {
     return [
-      25.0,  // Température
-      120.0, // Humidité relative
-      60,    // Humidité du sol
-      15.0,  // Vitesse du vent
-      5000,  // Rayonnement solaire
-      30.0,  // Pression atmosphérique
-      40,    // Précipitations
-      1.0,   // Évapotranspiration
-      6.8,   // pH du sol
-      60,    // Conductivité
-      20,    // Azote
-      150,   // Phosphore
-      0.7,   // Potassium
+      25.0,  // Température air
+      2.5,   // Précipitations
+      65,    // Humidité air
+      12.0,  // Vitesse vent
+      1,     // Type culture (arachide)
+      25000, // Périmètre (2.5 ha = 25000 m²)
+      26.0,  // Température sol
+      42,    // Humidité sol
+      1.2,   // EC
+      6.8,   // pH sol
+      45,    // Azote
+      38,    // Phosphore
+      152,   // Potassium
+      3,     // Fertilité (score 1-5)
+      2      // Type sol (sablo-argileux)
     ];
   }
 }

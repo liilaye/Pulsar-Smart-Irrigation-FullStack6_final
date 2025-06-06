@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMQTT } from '@/hooks/useMQTT';
 import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/services/backendService';
@@ -9,104 +9,85 @@ import { IrrigationToggle } from './irrigation/IrrigationToggle';
 import { DurationInputs } from './irrigation/DurationInputs';
 import { MLRecommendationButton } from './irrigation/MLRecommendationButton';
 import { MLRecommendationDisplay } from './irrigation/MLRecommendationDisplay';
-import { ConnectionErrorAlert } from './irrigation/ConnectionErrorAlert';
 
 export const ManualControl = () => {
   const [manualDuration, setManualDuration] = useState({ hours: '1', minutes: '30' });
   const [isManualActive, setIsManualActive] = useState(false);
   const [lastMLRecommendation, setLastMLRecommendation] = useState<any>(null);
+  const [isBackendConnected, setIsBackendConnected] = useState(true);
   
-  const { 
-    publishMessage, 
-    isConnected, 
-    setManualMode, 
-    irrigationStatus, 
-    connectionAttempts,
-    retryConnection,
-    maxRetries
-  } = useMQTT();
-  const { isBackendConnected } = useBackendSync();
   const { toast } = useToast();
 
   const toggleManualIrrigation = async (enabled: boolean) => {
-    console.log('🔄 Toggle irrigation demandé:', enabled);
-    console.log('🌐 État connexion MQTT:', isConnected);
+    console.log('🔄 Toggle irrigation Flask demandé:', enabled);
     
-    // Créer le message JSON selon le format spécifié
-    const command = {
-      type: "JOIN",
-      fcnt: 0,
-      json: {
-        switch_relay: {
-          device: enabled ? 1 : 0
+    try {
+      if (enabled) {
+        // Démarrer l'irrigation
+        const hours = parseInt(manualDuration.hours) || 0;
+        const minutes = parseInt(manualDuration.minutes) || 30;
+        
+        const response = await backendService.startManualIrrigation(hours, minutes);
+        
+        if (response.success) {
+          setIsManualActive(true);
+          toast({
+            title: "🚿 Irrigation démarrée",
+            description: `Durée: ${hours}h ${minutes}min via Flask backend`,
+          });
+        } else {
+          throw new Error(response.message);
         }
-      },
-      mqttHeaders: {
-        mqtt_receivedRetained: "false",
-        mqtt_id: "0",
-        mqtt_duplicate: "false",
-        id: crypto.randomUUID(),
-        mqtt_receivedTopic: "data/PulsarInfinite/swr",
-        mqtt_receivedQos: "0",
-        timestamp: Date.now().toString()
+      } else {
+        // Arrêter l'irrigation
+        const response = await backendService.stopIrrigation();
+        
+        if (response.success) {
+          setIsManualActive(false);
+          toast({
+            title: "⏹️ Irrigation arrêtée",
+            description: "Commande d'arrêt envoyée via Flask backend",
+          });
+        } else {
+          throw new Error(response.message);
+        }
       }
-    };
-
-    const topic = "data/PulsarInfinite/swr";
-    const messageStr = JSON.stringify(command);
-    
-    console.log('📤 Envoi vers topic:', topic);
-    console.log('📤 Commande complète:', messageStr);
-
-    const success = publishMessage(topic, messageStr, { 
-      qos: 1, 
-      retain: true 
-    });
-
-    console.log('📤 Résultat de publishMessage:', success);
-
-    if (success) {
-      setIsManualActive(enabled);
-      setManualMode(enabled);
-      
-      toast({
-        title: enabled ? "🚿 Commande envoyée" : "⏹️ Commande envoyée",
-        description: enabled ? 
-          `Device activé (device: 1) vers ${topic}` : 
-          `Device désactivé (device: 0) vers ${topic}`,
-      });
-      
-      console.log('✅ État local mis à jour - isManualActive:', enabled);
-    } else {
-      console.error('❌ Échec de l\'envoi de la commande');
+    } catch (error) {
+      console.error('❌ Erreur irrigation Flask:', error);
       toast({
         title: "❌ Erreur",
-        description: "Impossible d'envoyer la commande. Vérifiez la connexion MQTT.",
+        description: `Impossible de ${enabled ? 'démarrer' : 'arrêter'} l'irrigation: ${error}`,
         variant: "destructive"
       });
     }
   };
 
   const getMLRecommendation = async () => {
-    const features = backendService.getDefaultSoilClimateFeatures();
-    
-    const recommendation = await backendService.getMLRecommendation(features);
-    
-    if (recommendation && recommendation.status === "ok") {
-      setLastMLRecommendation(recommendation);
-      setManualDuration({
-        hours: Math.floor(recommendation.duree_minutes / 60).toString(),
-        minutes: Math.floor(recommendation.duree_minutes % 60).toString()
-      });
+    try {
+      console.log('🤖 Demande recommandation ML Flask...');
+      const features = backendService.getDefaultSoilClimateFeatures();
       
+      const recommendation = await backendService.getMLRecommendation(features);
+      
+      if (recommendation && recommendation.status === "ok") {
+        setLastMLRecommendation(recommendation);
+        setManualDuration({
+          hours: Math.floor(recommendation.duree_minutes / 60).toString(),
+          minutes: Math.floor(recommendation.duree_minutes % 60).toString()
+        });
+        
+        toast({
+          title: "🤖 Recommandation ML Flask reçue",
+          description: `Durée suggérée: ${Math.floor(recommendation.duree_minutes)} minutes`,
+        });
+      } else {
+        throw new Error('Réponse ML invalide');
+      }
+    } catch (error) {
+      console.error('❌ Erreur ML Flask:', error);
       toast({
-        title: "🤖 Recommandation ML reçue",
-        description: `Durée suggérée: ${Math.floor(recommendation.duree_minutes)} minutes`,
-      });
-    } else {
-      toast({
-        title: "❌ Erreur ML",
-        description: "Impossible d'obtenir une recommandation",
+        title: "❌ Erreur ML Flask",
+        description: "Impossible d'obtenir une recommandation du backend Flask",
         variant: "destructive"
       });
     }
@@ -115,20 +96,20 @@ export const ManualControl = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Arrosage Manuel</CardTitle>
+        <CardTitle>Arrosage Manuel - Backend Flask</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConnectionStatus
-          isConnected={isConnected}
-          connectionAttempts={connectionAttempts}
-          maxRetries={maxRetries}
-          onRetry={retryConnection}
+          isConnected={isBackendConnected}
+          connectionAttempts={0}
+          maxRetries={3}
+          onRetry={() => setIsBackendConnected(true)}
         />
 
         <IrrigationToggle
           isManualActive={isManualActive}
-          irrigationStatus={irrigationStatus}
-          isConnected={isConnected}
+          irrigationStatus={isManualActive}
+          isConnected={isBackendConnected}
           onToggle={toggleManualIrrigation}
         />
         
@@ -145,11 +126,13 @@ export const ManualControl = () => {
 
         <MLRecommendationDisplay lastMLRecommendation={lastMLRecommendation} />
 
-        <ConnectionErrorAlert
-          isConnected={isConnected}
-          connectionAttempts={connectionAttempts}
-          maxRetries={maxRetries}
-        />
+        {!isBackendConnected && (
+          <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-sm text-orange-700">
+              ⚠️ Backend Flask déconnecté. Vérifiez que le serveur Flask fonctionne sur http://localhost:5002
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
