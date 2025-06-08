@@ -7,7 +7,7 @@ PulsarInfinite est un système d'irrigation intelligent Full Stack combinant Mac
 
 ## Architecture
 
-
+```
 PulsarInfinite/
 ├── backend/           # Backend Flask Python
 │   ├── app.py        # Application principale
