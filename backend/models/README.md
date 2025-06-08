@@ -1,35 +1,25 @@
 
-# Modèles ML - PulsarInfinite
+# Modèles ML PulsarInfinite
 
-## Placement du modèle pré-entraîné
+## Modèle XGBoost Manquant
 
-Placez votre fichier `xgboost_arrosage_litres.pkl` dans ce dossier.
+Le fichier `xgboost_arrosage_litres.pkl` n'est pas présent dans ce repository.
 
-Le modèle doit être capable de prédire la quantité d'eau (en m³) basée sur 15 features agro-climatiques :
+### Pour tester sans le modèle ML :
+Le backend Flask continuera de fonctionner et retournera des données de fallback pour les endpoints ML.
 
-1. Température_air_(°C)
-2. Précipitation_(mm) 
-3. Humidité_air_(%)
-4. Vent_moyen_(km/h)
-5. Type_culture
-6. Périmètre_agricole_(m2)
-7. Température_sol_(°C)
-8. Humidité_sol_(%)
-9. EC_(dS/m)
-10. pH_sol
-11. Azote_(mg/kg)
-12. Phosphore_(mg/kg)
-13. Potassium_(mg/kg)
-14. Fertilité_(score)
-15. Type_sol
+### Pour ajouter le modèle :
+1. Placez votre fichier `xgboost_arrosage_litres.pkl` dans ce dossier
+2. Redémarrez le serveur Flask
+3. Le modèle sera automatiquement chargé
 
-## Structure attendue
-
+### Structure attendue :
 ```
-backend/
-  models/
-    xgboost_arrosage_litres.pkl  ← Votre modèle ici
-    README.md
+backend/models/
+├── README.md (ce fichier)
+└── xgboost_arrosage_litres.pkl (votre modèle)
 ```
 
-Le modèle sera automatiquement chargé au démarrage du serveur Flask.
+Le modèle doit être compatible avec :
+- 15 features d'entrée (paramètres agro-climatiques)
+- Sortie : prédiction de volume d'irrigation en litres

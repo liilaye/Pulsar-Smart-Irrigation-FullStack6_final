@@ -40,7 +40,15 @@ export interface MLPredictionAnalysis {
 import { irrigationDataService } from './irrigationDataService';
 
 class BackendService {
-  private baseUrl = 'http://localhost:5002/api';
+  // Configuration dynamique pour développement local
+  private getBaseUrl(): string {
+    // En développement local, utiliser localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5002/api';
+    }
+    // Pour les autres environnements, utiliser le proxy Vite
+    return '/api';
+  }
 
   // Méthode utilitaire pour les requêtes avec gestion d'erreurs améliorée
   private async makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
@@ -48,7 +56,10 @@ class BackendService {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes timeout
 
     try {
-      const response = await fetch(url, {
+      const fullUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url.startsWith('/') ? url : `/${url}`}`;
+      console.log(`🔄 Requête vers: ${fullUrl}`);
+      
+      const response = await fetch(fullUrl, {
         ...options,
         signal: controller.signal,
         headers: {
@@ -58,11 +69,12 @@ class BackendService {
       });
       
       clearTimeout(timeoutId);
+      console.log(`✅ Réponse reçue: ${response.status} ${response.statusText}`);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Timeout: Le serveur Flask ne répond pas');
+        throw new Error('Timeout: Le serveur Flask ne répond pas (10s)');
       }
       throw error;
     }
@@ -71,7 +83,7 @@ class BackendService {
   async getMLRecommendation(soilClimateFeatures: number[]): Promise<MLPrediction | null> {
     try {
       console.log('🤖 Envoi requête ML vers Flask backend...');
-      const response = await this.makeRequest(`${this.baseUrl}/arroser`, {
+      const response = await this.makeRequest('/arroser', {
         method: 'POST',
         body: JSON.stringify({
           features: soilClimateFeatures
@@ -99,14 +111,14 @@ class BackendService {
       return data;
     } catch (error) {
       console.error('❌ Erreur requête ML Flask:', error);
-      throw error; // Rethrow pour permettre une gestion d'erreur appropriée
+      throw error;
     }
   }
 
   async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
     try {
       console.log('🚿 Démarrage irrigation manuelle via Flask...');
-      const response = await this.makeRequest(`${this.baseUrl}/irrigation/manual`, {
+      const response = await this.makeRequest('/irrigation/manual', {
         method: 'POST',
         body: JSON.stringify({
           durationHours,
@@ -143,7 +155,7 @@ class BackendService {
   async stopIrrigation(): Promise<BackendResponse> {
     try {
       console.log('⏹️ Arrêt irrigation via Flask...');
-      const response = await fetch(`${this.baseUrl}/irrigation/stop`, {
+      const response = await fetch(`${this.getBaseUrl()}/irrigation/stop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +174,7 @@ class BackendService {
   async sendMQTTCommand(device: 0 | 1): Promise<BackendResponse> {
     try {
       console.log(`📡 Envoi commande MQTT via Flask: device=${device}`);
-      const response = await fetch(`${this.baseUrl}/mqtt/command`, {
+      const response = await fetch(`${this.getBaseUrl()}/mqtt/command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,7 +193,7 @@ class BackendService {
 
   async getIrrigationStatus(): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/irrigation/status`);
+      const response = await fetch(`${this.getBaseUrl()}/irrigation/status`);
       const data = await response.json();
       return data;
     } catch (error) {
@@ -193,7 +205,7 @@ class BackendService {
   async updateIrrigationSystem(systemType: string): Promise<BackendResponse> {
     try {
       console.log('🔧 Mise à jour système irrigation via Flask...');
-      const response = await fetch(`${this.baseUrl}/irrigation/system`, {
+      const response = await fetch(`${this.getBaseUrl()}/irrigation/system`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -213,7 +225,7 @@ class BackendService {
   async sendSchedulesToBackend(schedules: any): Promise<BackendResponse> {
     try {
       console.log('📅 Envoi planning vers Flask backend...');
-      const response = await fetch(`${this.baseUrl}/irrigation/schedule`, {
+      const response = await fetch(`${this.getBaseUrl()}/irrigation/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +246,7 @@ class BackendService {
   async getTrendAnalysis(): Promise<TrendAnalysis | null> {
     try {
       console.log('📊 Récupération analyse des tendances Flask...');
-      const response = await this.makeRequest(`${this.baseUrl}/analytics/trends`);
+      const response = await this.makeRequest('/analytics/trends');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -258,7 +270,7 @@ class BackendService {
   async getMLPredictionAnalysis(): Promise<MLPredictionAnalysis | null> {
     try {
       console.log('🧠 Récupération prédictions ML Flask...');
-      const response = await this.makeRequest(`${this.baseUrl}/analytics/ml-predictions`);
+      const response = await this.makeRequest('/analytics/ml-predictions');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -279,11 +291,14 @@ class BackendService {
     }
   }
 
-  // Test de connexion
+  // Test de connexion amélioré pour développement local
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.makeRequest(`${this.baseUrl}/health`);
-      return response.ok;
+      console.log('🔍 Test de connexion Flask...');
+      const response = await this.makeRequest('/health');
+      const isConnected = response.ok;
+      console.log(`${isConnected ? '✅' : '❌'} Test connexion Flask: ${isConnected ? 'OK' : 'ÉCHEC'}`);
+      return isConnected;
     } catch (error) {
       console.error('❌ Test connexion Flask échoué:', error);
       return false;
