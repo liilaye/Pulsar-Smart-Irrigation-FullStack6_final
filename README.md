@@ -1,13 +1,13 @@
 
 # PulsarInfinite - Système d'Irrigation Intelligent
 
-## 🌱 Description
+## Description
 
 PulsarInfinite est un système d'irrigation intelligent Full Stack combinant Machine Learning, IoT et analyse météorologique pour optimiser l'irrigation agricole.
 
-## 🏗️ Architecture
+## Architecture
 
-```
+
 PulsarInfinite/
 ├── backend/           # Backend Flask Python
 │   ├── app.py        # Application principale
@@ -22,7 +22,7 @@ PulsarInfinite/
 └── public/           # Assets statiques
 ```
 
-## 🚀 Démarrage Rapide (macOS)
+## Démarrage Rapide (macOS)
 
 ### Méthode automatique
 ```bash
@@ -45,13 +45,13 @@ npm install
 npm run dev
 ```
 
-## 🌐 URLs d'accès
+## URLs d'accès
 
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:5002
 - **Test santé**: http://localhost:5002/api/health
 
-## 🔧 Technologies
+## Technologies
 
 ### Backend
 - **Flask** - Framework web Python
@@ -68,7 +68,7 @@ npm run dev
 - **Shadcn/UI** - Composants UI
 - **React Query** - Gestion état serveur
 
-## 📡 Endpoints API
+## Endpoints API
 
 ### Irrigation
 - `POST /api/arroser` - Recommandation ML
@@ -87,7 +87,7 @@ npm run dev
 ### Système
 - `GET /api/health` - Test de santé
 
-## 🤖 Machine Learning
+## Machine Learning
 
 Le système utilise un modèle XGBoost entraîné sur 15 paramètres agro-climatiques :
 - Température air/sol
@@ -105,20 +105,20 @@ Le système utilise un modèle XGBoost entraîné sur 15 paramètres agro-climat
 - **Fallback local** si API indisponible
 - **Localisation**: Thiès et Taïba Ndiaye
 
-## 📊 Monitoring
+##  Monitoring
 
 - Statut connexion backend en temps réel
 - Logs d'irrigation détaillés
 - Analyses de tendances
 - Dashboard analytique
 
-## 🔄 MQTT IoT
+## MQTT IoT
 
 - **Broker**: 217.182.210.54:8080
 - **Topics**: Commandes irrigation
 - **Devices**: Contrôle pompes/valves
 
-## 🐳 Déploiement
+## Déploiement
 
 ### Développement
 ```bash
@@ -138,7 +138,7 @@ npm run build
 gunicorn --bind 0.0.0.0:5002 backend.app:app
 ```
 
-## 🔒 Variables d'environnement
+## Variables d'environnement
 
 Créez `.env` dans `/backend/`:
 ```env
@@ -149,7 +149,7 @@ MQTT_BROKER_HOST=217.182.210.54
 MQTT_BROKER_PORT=8080
 ```
 
-## 🧪 Tests
+##  Tests
 
 ```bash
 # Backend tests
@@ -160,7 +160,7 @@ python3 test_connections.py
 npm test
 ```
 
-## 🤝 Contribution
+## Contribution
 
 1. Fork le projet
 2. Créez une branche feature (`git checkout -b feature/nouvelle-fonctionnalite`)
@@ -168,17 +168,14 @@ npm test
 4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
 5. Ouvrez une Pull Request
 
-## 📄 Licence
+##  Licence
 
 Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
-## 🆘 Support
+## Support
 
-Pour toute question ou problème :
-- Créez une issue GitHub
-- Consultez la documentation dans `/docs/`
-- Vérifiez les logs dans la console
+
 
 ---
 
-**PulsarInfinite** - L'irrigation intelligente pour l'agriculture moderne 🌱
+**PulsarInfinite - Smart Irrigation System** - L'irrigation intelligente pour l'agriculture moderne - By Libasse Laye MBENGUE - DIC3 GI/RT
