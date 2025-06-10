@@ -122,11 +122,11 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="manualQuantity" 
-                    stroke="#3B82F6" 
+                    stroke="#FF0000" 
                     strokeWidth={2}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#3B82F6' }}
-                    name="Arrosage Manuel"
+                    dot={{ fill: '#FF0000', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#FF0000' }}
+                    name="Graphe Arrosage Manuel"
                   />
                 )}
                 
@@ -134,17 +134,17 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="mlQuantity" 
-                    stroke="#8B5CF6" 
+                    stroke="#0000FF" 
                     strokeWidth={2}
-                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#8B5CF6' }}
-                    name="Arrosage ML"
+                    dot={{ fill: '#0000FF', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#0000FF' }}
+                    name="Graphe Irrigation basé sur ML"
                   />
                 )}
               </LineChart>
             </ResponsiveContainer>
             <p className="text-sm text-gray-600 mt-2">
-              Quantité d'eau par heure - 🔵 Manuel (MQTT Direct) vs 🟣 ML (Prédictions XGBoost)
+              Quantité d'eau par heure - 🔴 Manuel (MQTT Direct) vs 🔵 ML (Prédictions XGBoost)
               {isRealTimeActive && (
                 <span className="text-blue-600 font-medium"> - Irrigation en cours</span>
               )}
@@ -166,10 +166,10 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="manualQuantity" 
-                    stroke="#3B82F6" 
+                    stroke="#FF0000" 
                     strokeWidth={2}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                    name="Arrosage Manuel"
+                    dot={{ fill: '#FF0000', strokeWidth: 2, r: 4 }}
+                    name="Graphe Arrosage Manuel"
                   />
                 )}
                 
@@ -177,10 +177,10 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="mlQuantity" 
-                    stroke="#8B5CF6" 
+                    stroke="#0000FF" 
                     strokeWidth={2}
-                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                    name="Arrosage ML"
+                    dot={{ fill: '#0000FF', strokeWidth: 2, r: 4 }}
+                    name="Graphe Irrigation basé sur ML"
                   />
                 )}
               </LineChart>
@@ -203,10 +203,10 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="manualQuantity" 
-                    stroke="#3B82F6" 
+                    stroke="#FF0000" 
                     strokeWidth={2}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                    name="Arrosage Manuel"
+                    dot={{ fill: '#FF0000', strokeWidth: 2, r: 4 }}
+                    name="Graphe Arrosage Manuel"
                   />
                 )}
                 
@@ -214,10 +214,10 @@ export const WaterChart = () => {
                   <Line 
                     type="monotone" 
                     dataKey="mlQuantity" 
-                    stroke="#8B5CF6" 
+                    stroke="#0000FF" 
                     strokeWidth={2}
-                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                    name="Arrosage ML"
+                    dot={{ fill: '#0000FF', strokeWidth: 2, r: 4 }}
+                    name="Graphe Irrigation basé sur ML"
                   />
                 )}
               </LineChart>
