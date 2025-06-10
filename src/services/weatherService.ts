@@ -1,4 +1,3 @@
-
 interface WeatherData {
   temperature: string;
   humidity: string;
@@ -18,14 +17,17 @@ class WeatherService {
   private apiKey = 'c191a33a86795596637b7eb142c51fdd';
   private baseUrl = 'https://api.openweathermap.org/data/2.5';
 
-  async getWeatherData(location: 'thies' | 'taiba-ndiaye' = 'thies'): Promise<WeatherData | null> {
+  async getWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny' = 'thies'): Promise<WeatherData | null> {
     try {
       console.log(`🌤️ Récupération météo OpenWeather pour: ${location}`);
       
       // Mapping des villes pour le Sénégal
       const cityMapping = {
         'thies': 'Thiès,SN',
-        'taiba-ndiaye': 'Taiba Ndiaye,SN'
+        'taiba-ndiaye': 'Taiba Ndiaye,SN',
+        'hann-maristes': 'Hann Maristes,SN',
+        'dakar': 'Dakar,SN',
+        'bargny': 'Bargny,SN'
       };
       
       const city = cityMapping[location];
@@ -54,14 +56,17 @@ class WeatherService {
   }
 
   // Nouvelle méthode pour les données en temps réel
-  async getRealTimeWeatherData(location: 'thies' | 'taiba-ndiaye' = 'thies'): Promise<WeatherData | null> {
+  async getRealTimeWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny' = 'thies'): Promise<WeatherData | null> {
     try {
       console.log(`⚡ Récupération météo temps réel OpenWeather pour: ${location}`);
       
       // Pour les données temps réel, on peut aussi récupérer les données UV
       const cityMapping = {
         'thies': 'Thiès,SN',
-        'taiba-ndiaye': 'Taiba Ndiaye,SN'
+        'taiba-ndiaye': 'Taiba Ndiaye,SN',
+        'hann-maristes': 'Hann Maristes,SN',
+        'dakar': 'Dakar,SN',
+        'bargny': 'Bargny,SN'
       };
       
       const city = cityMapping[location];
@@ -125,19 +130,24 @@ class WeatherService {
     return iconMapping[iconCode] || "sun";
   }
 
-  private getFallbackData(location: 'thies' | 'taiba-ndiaye'): WeatherData {
+  private getFallbackData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'): WeatherData {
     const locationNames = {
       "thies": "Thiès",
-      "taiba-ndiaye": "Taïba Ndiaye"
+      "taiba-ndiaye": "Taïba Ndiaye",
+      "hann-maristes": "Hann Maristes",
+      "dakar": "Dakar",
+      "bargny": "Bargny"
     };
     
-    // Données réalistes pour la région de Thiès
+    // Données réalistes pour la région de Thiès/Dakar
     const now = new Date();
     const month = now.getMonth() + 1;
     const isDrySeason = month >= 11 || month <= 5; // Nov-Mai
     
-    const baseTemp = isDrySeason ? 28 : 25;
-    const baseHumidity = isDrySeason ? 55 : 80;
+    // Ajustement selon la proximité de la côte
+    const isCoastal = ['hann-maristes', 'dakar', 'bargny'].includes(location);
+    const baseTemp = isDrySeason ? (isCoastal ? 26 : 28) : (isCoastal ? 23 : 25);
+    const baseHumidity = isDrySeason ? (isCoastal ? 65 : 55) : (isCoastal ? 85 : 80);
     const basePrecipitation = isDrySeason ? 0.2 : 8.5;
     
     return {

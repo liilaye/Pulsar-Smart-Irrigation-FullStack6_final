@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { weatherService, WeatherData } from '@/services/weatherService';
 
-export const useWeather = (location: 'thies' | 'taiba-ndiaye' = 'thies') => {
+export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny' = 'thies') => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

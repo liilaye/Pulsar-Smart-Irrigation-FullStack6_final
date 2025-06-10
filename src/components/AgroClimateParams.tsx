@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +46,7 @@ const getStatusColor = (status: string) => {
 };
 
 export const AgroClimateParams = () => {
-  const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye'>('thies');
+  const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'>('thies');
   const { weatherData, isLoading, error } = useWeather(selectedLocation);
 
   // Paramètres climatiques étendus depuis OpenWeatherMap
@@ -94,7 +93,7 @@ export const AgroClimateParams = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Label className="text-sm">Région:</Label>
-            <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye') => setSelectedLocation(value)}>
+            <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => setSelectedLocation(value)}>
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
@@ -109,6 +108,24 @@ export const AgroClimateParams = () => {
                   <div className="flex items-center space-x-2">
                     <MapPin className="h-4 w-4" />
                     <span>Taïba Ndiaye</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="hann-maristes">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Hann Maristes</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="dakar">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Dakar</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="bargny">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Bargny</span>
                   </div>
                 </SelectItem>
               </SelectContent>
