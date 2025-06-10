@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Button } from "@/components/ui/button";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useMQTT } from '@/hooks/useMQTT';
 import { irrigationDataService, DailyIrrigationData, WeeklyIrrigationData, MonthlyIrrigationData } from '@/services/irrigationDataService';
 
@@ -10,6 +12,7 @@ export const WaterChart = () => {
   const [dailyData, setDailyData] = useState<DailyIrrigationData[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyIrrigationData[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyIrrigationData[]>([]);
+  const [chartType, setChartType] = useState<'both' | 'manual' | 'ml'>('both');
   const [isRealTimeActive, setIsRealTimeActive] = useState(false);
   const { irrigationStatus } = useMQTT();
 
@@ -35,35 +38,40 @@ export const WaterChart = () => {
     setIsRealTimeActive(irrigationStatus);
   }, [irrigationStatus]);
 
-  // Simulation de mise à jour en temps réel pendant l'irrigation active
-  useEffect(() => {
-    if (isRealTimeActive) {
-      const interval = setInterval(() => {
-        setDailyData(prevData => {
-          const newData = [...prevData];
-          const currentHour = new Date().getHours();
-          const currentIndex = newData.findIndex(item => item.time === `${currentHour.toString().padStart(2, '0')}:00`);
-          
-          if (currentIndex !== -1) {
-            newData[currentIndex] = {
-              ...newData[currentIndex],
-              quantity: newData[currentIndex].quantity + 0.001 // Simulation progression
-            };
-          }
-          
-          return newData;
-        });
-      }, 5000);
-
-      return () => clearInterval(interval);
+  const getVisibleLines = () => {
+    switch (chartType) {
+      case 'manual':
+        return { manual: true, ml: false };
+      case 'ml':
+        return { manual: false, ml: true };
+      default:
+        return { manual: true, ml: true };
     }
-  }, [isRealTimeActive]);
+  };
+
+  const visibleLines = getVisibleLines();
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-medium">{`Période: ${label}`}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} style={{ color: entry.color }}>
+              {`${entry.name}: ${Number(entry.value).toFixed(3)} m³`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Quantité d'Eau Utilisée</span>
+          <span>Quantité d'Eau Utilisée - Comparaison ML vs Manuel</span>
           {isRealTimeActive && (
             <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
@@ -73,6 +81,20 @@ export const WaterChart = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="flex justify-between items-center mb-4">
+          <ToggleGroup type="single" value={chartType} onValueChange={(value) => value && setChartType(value as any)}>
+            <ToggleGroupItem value="both" className="text-xs">
+              Les Deux
+            </ToggleGroupItem>
+            <ToggleGroupItem value="manual" className="text-xs">
+              Manuel Seulement
+            </ToggleGroupItem>
+            <ToggleGroupItem value="ml" className="text-xs">
+              ML Seulement
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
         <Tabs defaultValue="daily" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="daily">Jour</TabsTrigger>
@@ -93,22 +115,36 @@ export const WaterChart = () => {
                   label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip 
-                  formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']}
-                  labelFormatter={(label) => `Heure: ${label}`}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="quantity" 
-                  stroke="#0505FB" 
-                  strokeWidth={2}
-                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#0505FB' }}
-                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                
+                {visibleLines.manual && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="manualQuantity" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#3B82F6' }}
+                    name="Arrosage Manuel"
+                  />
+                )}
+                
+                {visibleLines.ml && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="mlQuantity" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#8B5CF6' }}
+                    name="Arrosage ML"
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
             <p className="text-sm text-gray-600 mt-2">
-              Quantité d'eau utilisée par heure (données réelles Flask)
+              Quantité d'eau par heure - 🔵 Manuel (MQTT Direct) vs 🟣 ML (Prédictions XGBoost)
               {isRealTimeActive && (
                 <span className="text-blue-600 font-medium"> - Irrigation en cours</span>
               )}
@@ -123,17 +159,33 @@ export const WaterChart = () => {
                 <YAxis 
                   label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']} />
-                <Line 
-                  type="monotone" 
-                  dataKey="quantity" 
-                  stroke="#0505FB" 
-                  strokeWidth={2}
-                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
-                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                
+                {visibleLines.manual && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="manualQuantity" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    name="Arrosage Manuel"
+                  />
+                )}
+                
+                {visibleLines.ml && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="mlQuantity" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                    name="Arrosage ML"
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité d'eau utilisée par jour</p>
+            <p className="text-sm text-gray-600 mt-2">Comparaison hebdomadaire: Manuel vs ML</p>
           </TabsContent>
           
           <TabsContent value="monthly" className="mt-4">
@@ -144,17 +196,33 @@ export const WaterChart = () => {
                 <YAxis 
                   label={{ value: 'Quantité (m³)', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip formatter={(value) => [`${Number(value).toFixed(3)} m³`, 'Quantité']} />
-                <Line 
-                  type="monotone" 
-                  dataKey="quantity" 
-                  stroke="#0505FB" 
-                  strokeWidth={2}
-                  dot={{ fill: '#0505FB', strokeWidth: 2, r: 4 }}
-                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                
+                {visibleLines.manual && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="manualQuantity" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    name="Arrosage Manuel"
+                  />
+                )}
+                
+                {visibleLines.ml && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="mlQuantity" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                    name="Arrosage ML"
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-2">Quantité d'eau utilisée par semaine</p>
+            <p className="text-sm text-gray-600 mt-2">Comparaison mensuelle par semaine: Manuel vs ML</p>
           </TabsContent>
         </Tabs>
       </CardContent>

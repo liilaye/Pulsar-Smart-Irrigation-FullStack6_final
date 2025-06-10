@@ -11,42 +11,48 @@ export const useMQTT = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<MQTTMessage[]>([]);
   const [irrigationStatus, setIrrigationStatus] = useState(false);
-  const [isManualMode, setIsManualMode] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const clientRef = useRef<mqtt.MqttClient | null>(null);
-  const maxRetries = 5;
+  const maxRetries = 3;
 
-  // URLs de broker MQTT publics pour test
-  const brokerUrls = [
+  // Configuration broker principal PulsarInfinite
+  const primaryBroker = {
+    url: 'ws://217.182.210.54:8080/mqtt',
+    host: '217.182.210.54',
+    port: 8080
+  };
+
+  // Brokers de fallback pour tests
+  const fallbackBrokers = [
     'wss://broker.emqx.io:8084/mqtt',
-    'wss://mqtt.eclipseprojects.io:443/mqtt',
-    'ws://broker.emqx.io:8083/mqtt',
-    'ws://mqtt.eclipseprojects.io:80/mqtt'
+    'wss://mqtt.eclipseprojects.io:443/mqtt'
   ];
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: 0 | 1 | 2; retain?: boolean }) => {
-    console.log('📤 Tentative de publication...');
-    console.log('🌐 Statut connexion MQTT:', isConnected);
-    console.log('🔗 Client MQTT existe:', !!clientRef.current);
+    console.log('📤 Publication MQTT vers broker PulsarInfinite...');
+    console.log('🌐 Statut connexion:', isConnected);
+    console.log('🔗 Client existe:', !!clientRef.current);
+    console.log('📍 Topic:', topic);
+    console.log('📄 Message:', message);
     
     if (!isConnected || !clientRef.current) {
-      console.error('❌ Non connecté au broker MQTT - isConnected:', isConnected, 'client:', !!clientRef.current);
+      console.error('❌ Non connecté au broker MQTT PulsarInfinite');
       return false;
     }
 
     try {
-      console.log(`📤 Publication sur topic: ${topic}`);
-      console.log('📤 Message à publier:', message);
-      console.log('📤 Options:', { qos: options?.qos || 1, retain: options?.retain || false });
-      
-      clientRef.current.publish(topic, message, {
+      const publishOptions = {
         qos: (options?.qos || 1) as 0 | 1 | 2,
-        retain: options?.retain || false
-      }, (error) => {
+        retain: options?.retain || true
+      };
+      
+      console.log('📤 Options publication:', publishOptions);
+      
+      clientRef.current.publish(topic, message, publishOptions, (error) => {
         if (error) {
-          console.error('❌ Erreur lors de la publication:', error);
+          console.error('❌ Erreur publication MQTT:', error);
         } else {
-          console.log('✅ Message publié avec succès sur le broker!');
+          console.log('✅ Message publié avec succès vers broker PulsarInfinite!');
           const newMessage = { topic, message };
           setMessages(prev => [...prev.slice(-9), newMessage]);
         }
@@ -54,28 +60,19 @@ export const useMQTT = () => {
       
       return true;
     } catch (error) {
-      console.error('❌ Exception lors de la publication:', error);
+      console.error('❌ Exception publication MQTT:', error);
       return false;
     }
   }, [isConnected]);
 
-  const setManualMode = useCallback((mode: boolean) => {
-    console.log('🔄 Changement mode manuel:', mode);
-    setIsManualMode(mode);
-  }, []);
-
-  const updateIrrigationFromBackend = useCallback((status: boolean) => {
-    setIrrigationStatus(status);
-  }, []);
-
-  const connectToMQTT = useCallback(async (urlIndex = 0) => {
-    if (urlIndex >= brokerUrls.length || connectionAttempts >= maxRetries) {
-      console.error('❌ Toutes les tentatives de connexion ont échoué');
+  const connectToMQTT = useCallback(async (useFallback = false) => {
+    if (connectionAttempts >= maxRetries) {
+      console.error('❌ Nombre maximum de tentatives atteint');
       return;
     }
 
-    const brokerUrl = brokerUrls[urlIndex];
-    console.log(`🔄 Tentative ${connectionAttempts + 1}/${maxRetries} - Connexion à: ${brokerUrl}`);
+    const brokerUrl = useFallback ? fallbackBrokers[0] : primaryBroker.url;
+    console.log(`🔄 Connexion au broker: ${brokerUrl} (tentative ${connectionAttempts + 1}/${maxRetries})`);
     
     setConnectionAttempts(prev => prev + 1);
 
@@ -85,7 +82,7 @@ export const useMQTT = () => {
         clientRef.current.removeAllListeners();
         clientRef.current.end(true);
       } catch (error) {
-        console.error('Erreur lors de la fermeture:', error);
+        console.error('Erreur fermeture connexion précédente:', error);
       }
     }
 
@@ -94,31 +91,44 @@ export const useMQTT = () => {
         connectTimeout: 10000,
         keepalive: 60,
         clean: true,
-        reconnectPeriod: 0
+        reconnectPeriod: 0,
+        clientId: `PulsarInfinite_Frontend_${Date.now()}`
       });
 
       clientRef.current = client;
-      console.log('🔗 Client MQTT créé pour:', brokerUrl);
+      console.log('🔗 Client MQTT créé pour broker PulsarInfinite');
 
       const connectTimeout = setTimeout(() => {
-        console.log('⏰ Timeout de connexion pour:', brokerUrl);
-        if (urlIndex + 1 < brokerUrls.length) {
-          connectToMQTT(urlIndex + 1);
+        console.log('⏰ Timeout connexion broker PulsarInfinite');
+        if (!useFallback) {
+          console.log('🔄 Tentative avec broker de fallback...');
+          connectToMQTT(true);
         }
       }, 12000);
 
       client.on('connect', () => {
         clearTimeout(connectTimeout);
-        console.log('✅ Connecté au broker MQTT:', brokerUrl);
-        console.log('🎯 Prêt à publier des messages!');
+        console.log('✅ Connecté au broker PulsarInfinite:', brokerUrl);
+        console.log('🎯 Prêt pour l\'irrigation directe!');
         setIsConnected(true);
         setConnectionAttempts(0);
         
-        // S'abonner aux topics
-        client.subscribe('irrigation/PulsarInfinite/status', { qos: 1 });
-        client.subscribe('irrigation/PulsarInfinite/control', { qos: 1 });
-        client.subscribe('data/PulsarInfinite/swr', { qos: 1 }); // Ajout du topic principal
-        console.log('📡 Abonnement aux topics effectué');
+        // S'abonner aux topics PulsarInfinite
+        const topics = [
+          'data/PulsarInfinite/swr',
+          'data/PulsarInfinite/status',
+          'data/PulsarInfinite/control'
+        ];
+        
+        topics.forEach(topic => {
+          client.subscribe(topic, { qos: 1 }, (err) => {
+            if (err) {
+              console.error(`❌ Erreur abonnement ${topic}:`, err);
+            } else {
+              console.log(`📡 Abonné au topic: ${topic}`);
+            }
+          });
+        });
       });
 
       client.on('message', (topic, message) => {
@@ -128,14 +138,23 @@ export const useMQTT = () => {
         try {
           const data = JSON.parse(messageStr);
           
+          // Gérer les messages de statut d'irrigation
           if (topic.includes('status') && data.irrigation !== undefined) {
             setIrrigationStatus(data.irrigation);
+          }
+          
+          // Traiter les messages de contrôle
+          if (topic.includes('control') && data.switch_relay) {
+            setIrrigationStatus(data.switch_relay.device === 1);
           }
           
           const newMessage = { topic, message: messageStr };
           setMessages(prev => [...prev.slice(-9), newMessage]);
         } catch (error) {
-          console.error('❌ Erreur parsing JSON:', error);
+          console.error('❌ Erreur parsing message JSON:', error);
+          // Ajouter le message brut même s'il n'est pas JSON
+          const newMessage = { topic, message: messageStr };
+          setMessages(prev => [...prev.slice(-9), newMessage]);
         }
       });
 
@@ -144,8 +163,8 @@ export const useMQTT = () => {
         console.error(`❌ Erreur MQTT pour ${brokerUrl}:`, error);
         setIsConnected(false);
         
-        if (urlIndex + 1 < brokerUrls.length) {
-          setTimeout(() => connectToMQTT(urlIndex + 1), 2000);
+        if (!useFallback && connectionAttempts < maxRetries) {
+          setTimeout(() => connectToMQTT(true), 2000);
         }
       });
 
@@ -160,31 +179,31 @@ export const useMQTT = () => {
       });
 
     } catch (error) {
-      console.error('❌ Erreur lors de la création du client:', error);
-      if (urlIndex + 1 < brokerUrls.length) {
-        setTimeout(() => connectToMQTT(urlIndex + 1), 2000);
+      console.error('❌ Erreur création client MQTT:', error);
+      if (!useFallback && connectionAttempts < maxRetries) {
+        setTimeout(() => connectToMQTT(true), 2000);
       }
     }
   }, [connectionAttempts]);
 
   const retryConnection = useCallback(() => {
-    console.log('🔄 Retry manuel de la connexion');
+    console.log('🔄 Retry manuel de la connexion au broker PulsarInfinite');
     setConnectionAttempts(0);
     connectToMQTT();
   }, [connectToMQTT]);
 
   useEffect(() => {
-    console.log('🚀 Initialisation du hook MQTT');
+    console.log('🚀 Initialisation connexion broker MQTT PulsarInfinite');
     connectToMQTT();
     
     return () => {
-      console.log('🧹 Nettoyage du hook MQTT');
+      console.log('🧹 Nettoyage connexion MQTT PulsarInfinite');
       if (clientRef.current) {
         try {
           clientRef.current.removeAllListeners();
           clientRef.current.end(true);
         } catch (error) {
-          console.error('Erreur lors de la fermeture:', error);
+          console.error('Erreur fermeture:', error);
         }
       }
     };
@@ -194,11 +213,8 @@ export const useMQTT = () => {
     isConnected,
     messages,
     irrigationStatus,
-    isManualMode,
     connectionAttempts,
     publishMessage,
-    setManualMode,
-    updateIrrigationFromBackend,
     retryConnection,
     maxRetries
   };

@@ -3,24 +3,28 @@ interface IrrigationData {
   timestamp: string;
   volume_m3: number;
   duree_minutes: number;
-  source: 'ML' | 'MANUAL';
+  source: 'ML' | 'MANUAL' | 'MANUAL_DIRECT';
   status: string;
+  type?: 'manual' | 'ml';
 }
 
 interface DailyIrrigationData {
   time: string;
-  quantity: number;
+  manualQuantity: number;
+  mlQuantity: number;
   accumulated: number;
 }
 
 interface WeeklyIrrigationData {
   time: string;
-  quantity: number;
+  manualQuantity: number;
+  mlQuantity: number;
 }
 
 interface MonthlyIrrigationData {
   time: string;
-  quantity: number;
+  manualQuantity: number;
+  mlQuantity: number;
 }
 
 class IrrigationDataService {
@@ -28,8 +32,14 @@ class IrrigationDataService {
   private listeners: ((data: any) => void)[] = [];
 
   addIrrigationData(data: IrrigationData) {
-    this.irrigationHistory.push(data);
-    console.log('📊 Nouvelle donnée irrigation ajoutée:', data);
+    // Déterminer le type basé sur la source
+    const enhancedData = {
+      ...data,
+      type: data.source.includes('MANUAL') ? 'manual' as const : 'ml' as const
+    };
+    
+    this.irrigationHistory.push(enhancedData);
+    console.log('📊 Nouvelle donnée irrigation ajoutée:', enhancedData);
     this.notifyListeners();
   }
 
@@ -53,7 +63,8 @@ class IrrigationDataService {
     for (let i = 0; i < 24; i++) {
       dailyData.push({
         time: `${i.toString().padStart(2, '0')}:00`,
-        quantity: 0,
+        manualQuantity: 0,
+        mlQuantity: 0,
         accumulated: 0
       });
     }
@@ -68,14 +79,18 @@ class IrrigationDataService {
       const hour = new Date(irrigation.timestamp).getHours();
       const index = dailyData.findIndex(item => item.time === `${hour.toString().padStart(2, '0')}:00`);
       if (index !== -1) {
-        dailyData[index].quantity += irrigation.volume_m3;
+        if (irrigation.type === 'manual') {
+          dailyData[index].manualQuantity += irrigation.volume_m3;
+        } else {
+          dailyData[index].mlQuantity += irrigation.volume_m3;
+        }
       }
     });
 
     // Calculer les valeurs cumulatives
     let accumulated = 0;
     dailyData.forEach(item => {
-      accumulated += item.quantity;
+      accumulated += item.manualQuantity + item.mlQuantity;
       item.accumulated = accumulated;
     });
 
@@ -84,7 +99,11 @@ class IrrigationDataService {
 
   generateWeeklyData(): WeeklyIrrigationData[] {
     const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    const weeklyData: WeeklyIrrigationData[] = weekDays.map(day => ({ time: day, quantity: 0 }));
+    const weeklyData: WeeklyIrrigationData[] = weekDays.map(day => ({ 
+      time: day, 
+      manualQuantity: 0, 
+      mlQuantity: 0 
+    }));
     
     const today = new Date();
     const weekStart = new Date(today);
@@ -95,7 +114,11 @@ class IrrigationDataService {
       const daysDiff = Math.floor((irrigationDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysDiff >= 0 && daysDiff < 7) {
-        weeklyData[daysDiff].quantity += irrigation.volume_m3;
+        if (irrigation.type === 'manual') {
+          weeklyData[daysDiff].manualQuantity += irrigation.volume_m3;
+        } else {
+          weeklyData[daysDiff].mlQuantity += irrigation.volume_m3;
+        }
       }
     });
 
@@ -104,21 +127,24 @@ class IrrigationDataService {
 
   generateMonthlyData(): MonthlyIrrigationData[] {
     const monthlyData: MonthlyIrrigationData[] = [
-      { time: 'S1', quantity: 0 },
-      { time: 'S2', quantity: 0 },
-      { time: 'S3', quantity: 0 },
-      { time: 'S4', quantity: 0 }
+      { time: 'S1', manualQuantity: 0, mlQuantity: 0 },
+      { time: 'S2', manualQuantity: 0, mlQuantity: 0 },
+      { time: 'S3', manualQuantity: 0, mlQuantity: 0 },
+      { time: 'S4', manualQuantity: 0, mlQuantity: 0 }
     ];
 
     const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     this.irrigationHistory.forEach(irrigation => {
       const irrigationDate = new Date(irrigation.timestamp);
       if (irrigationDate.getMonth() === today.getMonth() && irrigationDate.getFullYear() === today.getFullYear()) {
         const weekIndex = Math.floor((irrigationDate.getDate() - 1) / 7);
         if (weekIndex < 4) {
-          monthlyData[weekIndex].quantity += irrigation.volume_m3;
+          if (irrigation.type === 'manual') {
+            monthlyData[weekIndex].manualQuantity += irrigation.volume_m3;
+          } else {
+            monthlyData[weekIndex].mlQuantity += irrigation.volume_m3;
+          }
         }
       }
     });
@@ -140,7 +166,8 @@ class IrrigationDataService {
       isActive: true,
       lastVolume: recent.volume_m3,
       lastDuration: recent.duree_minutes,
-      source: recent.source
+      source: recent.source,
+      type: recent.type
     } : { isActive: false };
   }
 }

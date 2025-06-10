@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.ml_service import ml_service
 from config.database import log_irrigation
+import datetime
 
 irrigation_bp = Blueprint('irrigation', __name__)
 
@@ -27,42 +28,60 @@ def arroser():
             )
             
             print(f"Prédiction ML: {prediction}")
-            return jsonify(prediction)
+            return jsonify({
+                "duree_minutes": prediction['duree_minutes'],
+                "volume_eau_m3": prediction['volume_eau_m3'],
+                "status": "ok",
+                "matt": f"Irrigation ML recommandée: {prediction['duree_minutes']:.1f} min pour {prediction['volume_eau_m3']:.3f} m³"
+            })
         else:
             return jsonify({"error": "Erreur dans la prédiction ML"}), 500
             
     except Exception as e:
-        print(f" Erreur endpoint /arroser: {e}")
+        print(f"❌ Erreur endpoint /arroser: {e}")
         return jsonify({"error": str(e)}), 500
+
+@irrigation_bp.route('/irrigation/log-manual', methods=['POST'])
+def log_manual_irrigation():
+    """Log l'irrigation manuelle avec calcul automatique"""
+    try:
+        data = request.get_json()
+        duration_minutes = data.get('duration_minutes', 0)
+        volume_m3 = data.get('volume_m3', 0)
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        print(f"📊 Log irrigation manuelle: {duration_minutes:.1f} min, {volume_m3:.3f} m³")
+        
+        # Log dans la base de données
+        log_irrigation(
+            action='manual_mqtt',
+            duration_minutes=duration_minutes,
+            volume_m3=volume_m3,
+            mqtt_status='ok',
+            source='MANUAL_DIRECT'
+        )
+        
+        return jsonify({"success": True, "message": "Irrigation manuelle loggée"})
+    except Exception as e:
+        print(f"❌ Erreur log irrigation manuelle: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @irrigation_bp.route('/irrigation/manual', methods=['POST'])
 def start_manual_irrigation():
-    """Démarre l'irrigation manuelle"""
+    """Démarre l'irrigation manuelle (legacy - maintenant via MQTT direct)"""
     try:
         data = request.get_json()
         duration_hours = data.get('durationHours', 0)
         duration_minutes = data.get('durationMinutes', 30)
         scheduled_by = data.get('scheduledBy', 'MANUAL')
-        timestamp = data.get('timestamp')
         
-        print(f"🚿 Irrigation manuelle demandée pour {duration_hours}h {duration_minutes}min")
+        print(f"⚠️ Legacy endpoint - Redirection vers MQTT direct recommandée")
         
-        # Simuler le démarrage de l'irrigation
-        result = {"success": True, "message": "Irrigation manuelle démarrée"}
-        
-        # Log dans la base de données
-        log_irrigation(
-            action='manual',
-            duration_minutes=(duration_hours * 60) + duration_minutes,
-            volume_m3=0.5,  # Valeur simulée
-            mqtt_status='ok',
-            source=scheduled_by  # Ex: "MANUAL"
-)
-
-        
+        result = {"success": True, "message": "Legacy endpoint - utiliser MQTT direct"}
         return jsonify(result)
     except Exception as e:
-        print(f"❌ Erreur irrigation manuelle: {e}")
+        print(f"❌ Erreur irrigation manuelle legacy: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @irrigation_bp.route('/irrigation/stop', methods=['POST'])
