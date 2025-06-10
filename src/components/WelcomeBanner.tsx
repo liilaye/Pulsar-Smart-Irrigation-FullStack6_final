@@ -7,7 +7,7 @@ export const WelcomeBanner = () => {
       <div 
         className="relative overflow-hidden rounded-xl shadow-lg p-8 text-center bg-white border-2 border-blue-500"
         style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&w=1920&q=80)',
+          backgroundImage: 'url(/lovable-uploads/83f13bec-c4eb-4abd-9ae6-af3242260bd8.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
