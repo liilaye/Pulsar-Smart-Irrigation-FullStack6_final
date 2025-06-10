@@ -1,16 +1,33 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Power, PowerOff } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useToast } from '@/hooks/use-toast';
+import { irrigationSyncService } from '@/services/irrigationSyncService';
 
 export const ManualIrrigationControl = () => {
   const [isManualActive, setIsManualActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string>('');
   const { isConnected, publishMessage, irrigationStatus } = useMQTT();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // S'abonner aux changements d'état global
+    const unsubscribe = irrigationSyncService.subscribe((state) => {
+      setIsManualActive(state.isActive && state.type === 'manual');
+      setStartTime(state.startTime);
+      
+      // Effacer le message de conflit si irrigation arrêtée
+      if (!state.isActive) {
+        setConflictMessage('');
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   const toggleManualIrrigation = async (enabled: boolean) => {
     console.log('🔄 Toggle irrigation MQTT direct:', enabled);
@@ -24,62 +41,95 @@ export const ManualIrrigationControl = () => {
       return;
     }
 
-    try {
-      const payload = {
-        switch_relay: {
-          device: enabled ? 1 : 0
-        }
-      };
-
-      const success = publishMessage(
-        'data/PulsarInfinite/swr',
-        JSON.stringify(payload),
-        { qos: 1, retain: true }
-      );
-
-      if (success) {
-        setIsManualActive(enabled);
-        
-        if (enabled) {
-          setStartTime(new Date());
-          toast({
-            title: "🚿 Irrigation manuelle démarrée",
-            description: "Commande envoyée directement au broker MQTT",
-          });
-        } else {
-          if (startTime) {
-            const duration = (new Date().getTime() - startTime.getTime()) / 1000 / 60; // en minutes
-            const volume = (duration * 20) / 1000; // 20L/min converti en m³
-            
-            // Envoyer les données au backend pour logging
-            fetch('/api/irrigation/log-manual', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                duration_minutes: duration,
-                volume_m3: volume,
-                start_time: startTime.toISOString(),
-                end_time: new Date().toISOString()
-              })
-            }).catch(console.error);
-            
-            toast({
-              title: "⏹️ Irrigation manuelle arrêtée",
-              description: `Durée: ${duration.toFixed(1)} min - Volume: ${volume.toFixed(3)} m³`,
-            });
-          }
-          setStartTime(null);
-        }
-      } else {
-        throw new Error('Échec de publication MQTT');
+    if (enabled) {
+      // Vérifier si on peut démarrer
+      const { canStart, reason } = irrigationSyncService.canStartIrrigation('manual');
+      if (!canStart) {
+        setConflictMessage(reason || 'Irrigation déjà active');
+        toast({
+          title: "⚠️ Conflit d'irrigation",
+          description: reason,
+          variant: "destructive"
+        });
+        return;
       }
-    } catch (error) {
-      console.error('❌ Erreur irrigation MQTT:', error);
-      toast({
-        title: "❌ Erreur",
-        description: `Impossible de ${enabled ? 'démarrer' : 'arrêter'} l'irrigation`,
-        variant: "destructive"
-      });
+
+      // Démarrer irrigation manuelle
+      if (irrigationSyncService.startIrrigation('manual', 'MQTT_Direct')) {
+        try {
+          const payload = {
+            switch_relay: {
+              device: 1
+            }
+          };
+
+          const success = publishMessage(
+            'data/PulsarInfinite/swr',
+            JSON.stringify(payload),
+            { qos: 1, retain: true }
+          );
+
+          if (success) {
+            toast({
+              title: "🚿 Irrigation manuelle démarrée",
+              description: "Commande envoyée directement au broker MQTT",
+            });
+          } else {
+            // Annuler le démarrage en cas d'échec MQTT
+            irrigationSyncService.stopIrrigation('MQTT_Error');
+            throw new Error('Échec de publication MQTT');
+          }
+        } catch (error) {
+          irrigationSyncService.stopIrrigation('MQTT_Error');
+          throw error;
+        }
+      }
+    } else {
+      // Arrêter irrigation
+      try {
+        const payload = {
+          switch_relay: {
+            device: 0
+          }
+        };
+
+        const success = publishMessage(
+          'data/PulsarInfinite/swr',
+          JSON.stringify(payload),
+          { qos: 1, retain: true }
+        );
+
+        if (success) {
+          const duration = startTime ? (new Date().getTime() - startTime.getTime()) / 1000 / 60 : 0;
+          const volume = (duration * 20) / 1000; // 20L/min converti en m³
+          
+          // Envoyer les données au backend pour logging
+          fetch('/api/irrigation/log-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              duration_minutes: duration,
+              volume_m3: volume,
+              start_time: startTime?.toISOString(),
+              end_time: new Date().toISOString()
+            })
+          }).catch(console.error);
+          
+          irrigationSyncService.stopIrrigation('MQTT_Manual');
+          
+          toast({
+            title: "⏹️ Irrigation manuelle arrêtée",
+            description: `Durée: ${duration.toFixed(1)} min - Volume: ${volume.toFixed(3)} m³`,
+          });
+        }
+      } catch (error) {
+        console.error('❌ Erreur arrêt irrigation MQTT:', error);
+        toast({
+          title: "❌ Erreur",
+          description: "Impossible d'arrêter l'irrigation",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -87,7 +137,7 @@ export const ManualIrrigationControl = () => {
     <Card>
       <CardHeader>
         <CardTitle>
-          <span>Arrosage Manuel - Direct MQTT</span>
+          Arrosage Manuel - Direct MQTT
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -115,6 +165,14 @@ export const ManualIrrigationControl = () => {
             </div>
           </div>
         </div>
+
+        {conflictMessage && (
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-700">
+              ⚠️ {conflictMessage}
+            </p>
+          </div>
+        )}
 
         {isManualActive && startTime && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
