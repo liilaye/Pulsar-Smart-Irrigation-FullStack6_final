@@ -8,7 +8,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 5173, // Port standard pour Vite en développement local
+    port: 8080,
     proxy: {
       '/api': {
         target: 'http://localhost:5002',

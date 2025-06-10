@@ -40,8 +40,8 @@ export const MLIrrigationControl = () => {
         currentRecommendation: recommendation ? {
           duree_minutes: recommendation.duree_minutes,
           volume_eau_m3: recommendation.volume_eau_m3,
-          type_culture: 'Arachide', // Valeur par défaut
-          perimetre_m2: 25000 // 2.5 hectares par défaut
+          type_culture: 'Arachide',
+          perimetre_m2: 25000
         } : undefined,
         remaining_time: status?.remaining_time,
         progress: status?.progress || 0
@@ -56,7 +56,7 @@ export const MLIrrigationControl = () => {
 
   useEffect(() => {
     updateMLStatus();
-    const interval = setInterval(updateMLStatus, 5000); // Mise à jour toutes les 5s
+    const interval = setInterval(updateMLStatus, 5000);
     return () => clearInterval(interval);
   }, []);
 
