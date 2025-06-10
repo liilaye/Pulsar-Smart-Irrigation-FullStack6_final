@@ -26,17 +26,17 @@ class WeatherService {
       }
       
       const data = await response.json();
-      console.log('✅ Données météo temps réel Flask reçues:', data);
+      console.log('Données météo temps réel Flask reçues:', data);
       return data;
       
     } catch (error) {
-      console.error('❌ Erreur météo Flask, utilisation données de secours:', error);
+      console.error(' Erreur météo Flask, utilisation données de secours:', error);
       // Données de fallback locales pour Thiès
       return {
         temperature: "28°C",
         humidity: "65%",
         windSpeed: "12 km/h",
-        precipitation: "2.5 mm",
+        precipitation: "0 mm",
         weatherIcon: "sun",
         location: location === 'thies' ? 'Thiès' : 'Taïba Ndiaye'
       };
@@ -60,11 +60,11 @@ class WeatherService {
       }
       
       const data = await response.json();
-      console.log('✅ Données météo temps réel:', data);
+      console.log('Données météo temps réel:', data);
       return data;
       
     } catch (error) {
-      console.error('❌ Erreur météo temps réel:', error);
+      console.error('Erreur météo temps réel:', error);
       return this.getWeatherData(location);
     }
   }

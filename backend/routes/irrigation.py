@@ -11,7 +11,7 @@ def arroser():
         data = request.get_json()
         features = data.get('features', [])
         
-        print(f"🤖 Requête ML reçue avec features: {features}")
+        print(f"Requête ML reçue avec features: {features}")
         
         # Appeler le service ML
         prediction = ml_service.predict_irrigation(features)
@@ -19,19 +19,20 @@ def arroser():
         if prediction:
             # Log dans la base de données
             log_irrigation(
+                action='ml',
                 duration_minutes=prediction['duree_minutes'],
                 volume_m3=prediction['volume_eau_m3'],
-                scheduled_by='ML',
-                status='ok'
+                mqtt_status='ok',
+                source='ML'
             )
             
-            print(f"✅ Prédiction ML: {prediction}")
+            print(f"Prédiction ML: {prediction}")
             return jsonify(prediction)
         else:
             return jsonify({"error": "Erreur dans la prédiction ML"}), 500
             
     except Exception as e:
-        print(f"❌ Erreur endpoint /arroser: {e}")
+        print(f" Erreur endpoint /arroser: {e}")
         return jsonify({"error": str(e)}), 500
 
 @irrigation_bp.route('/irrigation/manual', methods=['POST'])
@@ -51,11 +52,13 @@ def start_manual_irrigation():
         
         # Log dans la base de données
         log_irrigation(
+            action='manual',
             duration_minutes=(duration_hours * 60) + duration_minutes,
             volume_m3=0.5,  # Valeur simulée
-            scheduled_by=scheduled_by,
-            status='ok'
-        )
+            mqtt_status='ok',
+            source=scheduled_by  # Ex: "MANUAL"
+)
+
         
         return jsonify(result)
     except Exception as e:

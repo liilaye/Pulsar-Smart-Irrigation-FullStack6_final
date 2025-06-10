@@ -183,10 +183,10 @@ class BackendService {
       });
 
       const data = await response.json();
-      console.log('✅ Réponse commande MQTT Flask:', data);
+      console.log('Réponse commande MQTT Flask:', data);
       return data;
     } catch (error) {
-      console.error('❌ Erreur commande MQTT Flask:', error);
+      console.error(' Erreur commande MQTT Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
@@ -197,7 +197,7 @@ class BackendService {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('❌ Erreur statut irrigation Flask:', error);
+      console.error('Erreur statut irrigation Flask:', error);
       return null;
     }
   }
@@ -214,17 +214,17 @@ class BackendService {
       });
 
       const data = await response.json();
-      console.log('✅ Réponse système irrigation Flask:', data);
+      console.log('Réponse système irrigation Flask:', data);
       return data;
     } catch (error) {
-      console.error('❌ Erreur système irrigation Flask:', error);
+      console.error('Erreur système irrigation Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
   async sendSchedulesToBackend(schedules: any): Promise<BackendResponse> {
     try {
-      console.log('📅 Envoi planning vers Flask backend...');
+      console.log('Envoi planning vers Flask backend...');
       const response = await fetch(`${this.getBaseUrl()}/irrigation/schedule`, {
         method: 'POST',
         headers: {
@@ -234,10 +234,10 @@ class BackendService {
       });
 
       const data = await response.json();
-      console.log('✅ Réponse planning Flask:', data);
+      console.log('Réponse planning Flask:', data);
       return data;
     } catch (error) {
-      console.error('❌ Erreur planning Flask:', error);
+      console.error('Erreur planning Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
@@ -245,7 +245,7 @@ class BackendService {
   // Nouvelles méthodes pour les analyses temps réel avec gestion d'erreurs
   async getTrendAnalysis(): Promise<TrendAnalysis | null> {
     try {
-      console.log('📊 Récupération analyse des tendances Flask...');
+      console.log('Récupération analyse des tendances Flask...');
       const response = await this.makeRequest('/analytics/trends');
       
       if (!response.ok) {
@@ -253,10 +253,10 @@ class BackendService {
       }
       
       const data = await response.json();
-      console.log('✅ Analyse des tendances reçue:', data);
+      console.log('Analyse des tendances reçue:', data);
       return data;
     } catch (error) {
-      console.error('❌ Erreur analyse tendances Flask:', error);
+      console.error('Erreur analyse tendances Flask:', error);
       // Données de fallback
       return {
         waterConsumption: 0.85,
@@ -309,11 +309,11 @@ class BackendService {
   getDefaultSoilClimateFeatures(): number[] {
     return [
       25.0,  // Température air
-      2.5,   // Précipitations
+      0,   // Précipitations
       65,    // Humidité air
       12.0,  // Vitesse vent
       1,     // Type culture (arachide)
-      25000, // Périmètre (2.5 ha = 25000 m²)
+      10000, // Périmètre (2.5 ha = 25000 m²)
       26.0,  // Température sol
       42,    // Humidité sol
       1.2,   // EC

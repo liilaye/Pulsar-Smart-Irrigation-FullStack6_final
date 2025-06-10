@@ -1,23 +1,22 @@
-
 from flask import Blueprint, request, jsonify
 from services.mqtt_service import mqtt_service
 
-mqtt_bp = Blueprint('mqtt', __name__)
+mqtt_bp = Blueprint("mqtt", __name__)
 
-@mqtt_bp.route('/mqtt/command', methods=['POST'])
-def mqtt_command():
-    """Envoie une commande MQTT directe"""
+@mqtt_bp.route("/mqtt/test-publish", methods=["POST"])
+def test_publish():
+    """
+    Publie manuellement un message MQTT vers le broker
+    Corps JSON: { "device": 1 }
+    """
     try:
         data = request.get_json()
-        device_state = data.get('device', 0)  # 0 = OFF, 1 = ON
-        
-        status, response = mqtt_service.envoyer_commande_mqtt(device_state)
-        
+        device_id = int(data.get("device", 1))
+        result_code, message = mqtt_service.envoyer_commande_mqtt(device_id)
         return jsonify({
-            "success": status < 400,
-            "status_code": status,
-            "response": response,
-            "command": "ON" if device_state == 1 else "OFF"
-        })
+            "success": result_code == 0,
+            "code": result_code,
+            "message": message
+        }), 200 if result_code == 0 else 500
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500

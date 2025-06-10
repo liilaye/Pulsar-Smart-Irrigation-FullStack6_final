@@ -5,24 +5,27 @@ import numpy as np
 import os
 from config.mqtt_config import MODEL_PATH, DEBIT_LITRES_PAR_MIN
 
+import os
+import joblib
+
 class MLService:
     def __init__(self):
         self.model = None
+        self.model_path = os.path.join("models", "xgboost_arrosage_litres.pkl")
         self.load_model()
-    
+
     def load_model(self):
         """Charge le modèle XGBoost pré-entraîné"""
+        if not os.path.exists(self.model_path):
+            raise FileNotFoundError(f" Modèle non trouvé à l'emplacement : {self.model_path}")
+        
         try:
-            if os.path.exists(MODEL_PATH):
-                self.model = joblib.load(MODEL_PATH)
-                print(f"✅ Modèle chargé depuis: {MODEL_PATH}")
-            else:
-                print(f"⚠️ Modèle non trouvé: {MODEL_PATH}")
-                print("📍 Placez le fichier 'xgboost_arrosage_litres.pkl' dans le dossier backend/models/")
-                self.model = None
+            self.model = joblib.load(self.model_path)
+            print("Modèle XGBoost chargé avec succès.")
         except Exception as e:
-            print(f"❌ Erreur chargement modèle: {e}")
-            self.model = None
+            print(f" Erreur lors du chargement du modèle : {e}")
+            raise
+
     
     def predict_irrigation(self, features_data):
         """Prédit la quantité d'eau nécessaire basée sur les features agro-climatiques"""
