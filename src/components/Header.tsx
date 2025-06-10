@@ -22,7 +22,7 @@ export const Header = () => {
           <SidebarTrigger />
           <div className="flex items-center space-x-3">
             <img 
-              src="/lovable-uploads/6def057b-4ec6-4316-8956-65d39f2ffa31.png" 
+              src="/lovable-uploads/e1e9f2a0-3f94-4373-8bc5-9494dc4b2b58.png" 
               alt="PulsarInfinite Logo" 
               className="h-12 w-auto object-contain"
             />
