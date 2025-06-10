@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,21 +50,18 @@ export const AgroClimateParams = () => {
   const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'>('thies');
   const { weatherData, isLoading, error } = useWeather(selectedLocation);
 
-  // Paramètres climatiques étendus depuis OpenWeatherMap
+  // Paramètres climatiques réduits sans les icônes
   const climateData = weatherData ? [
-    { name: "Température Air", value: weatherData.temperature, unit: "°C", status: "normal", icon: "🌡️" },
-    { name: "Ressenti", value: weatherData.feels_like || "N/A", unit: "°C", status: "normal", icon: "🌡️" },
-    { name: "Humidité Air", value: weatherData.humidity, unit: "%", status: "normal", icon: "💧" },
-    { name: "Pression Atm.", value: weatherData.pressure || "N/A", unit: "hPa", status: "normal", icon: "📊" },
-    { name: "Vent Moyen", value: weatherData.windSpeed, unit: "km/h", status: "normal", icon: "🌬️" },
-    { name: "Précipitations", value: weatherData.precipitation, unit: "mm", status: "faible", icon: "🌧️" },
-    { name: "Visibilité", value: weatherData.visibility || "N/A", unit: "km", status: "normal", icon: "👁️" },
-    { name: "Couverture Nuageuse", value: weatherData.cloudCover || "N/A", unit: "%", status: "normal", icon: "☁️" },
+    { name: "Température Air", value: weatherData.temperature, unit: "°C", status: "normal" },
+    { name: "Humidité Air", value: weatherData.humidity, unit: "%", status: "normal" },
+    { name: "Pression Atm.", value: weatherData.pressure || "N/A", unit: "hPa", status: "normal" },
+    { name: "Vent Moyen", value: weatherData.windSpeed, unit: "km/h", status: "normal" },
+    { name: "Précipitations", value: weatherData.precipitation, unit: "mm", status: "faible" },
   ] : [
-    { name: "Température Air", value: "Chargement...", unit: "°C", status: "normal", icon: "🌡️" },
-    { name: "Humidité Air", value: "Chargement...", unit: "%", status: "normal", icon: "💧" },
-    { name: "Vent Moyen", value: "Chargement...", unit: "km/h", status: "normal", icon: "🌬️" },
-    { name: "Précipitations", value: "Chargement...", unit: "mm", status: "faible", icon: "🌧️" },
+    { name: "Température Air", value: "Chargement...", unit: "°C", status: "normal" },
+    { name: "Humidité Air", value: "Chargement...", unit: "%", status: "normal" },
+    { name: "Vent Moyen", value: "Chargement...", unit: "km/h", status: "normal" },
+    { name: "Précipitations", value: "Chargement...", unit: "mm", status: "faible" },
   ];
 
   return (
@@ -170,13 +168,10 @@ export const AgroClimateParams = () => {
               </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {climateData.map((param, index) => (
                 <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-lg">{param.icon}</span>
-                    <h4 className="font-medium text-sm">{param.name}</h4>
-                  </div>
+                  <h4 className="font-medium text-sm mb-1">{param.name}</h4>
                   <p className="text-lg font-bold">{param.value}</p>
                   <p className="text-xs capitalize">{param.status}</p>
                 </div>
