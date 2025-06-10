@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Droplet, Clock, MapPin, Wheat } from 'lucide-react';
 import { backendService } from '@/services/backendService';
@@ -15,8 +14,8 @@ interface MLIrrigationStatus {
     volume_eau_m3: number;
     type_culture: string;
     perimetre_m2: number;
-    remaining_time?: number;
   };
+  remaining_time?: number;
   progress?: number;
 }
 
@@ -38,7 +37,13 @@ export const MLIrrigationControl = () => {
       setMLStatus({
         isActive: status?.isActive || false,
         status: status?.status || 'stopped',
-        currentRecommendation: recommendation,
+        currentRecommendation: recommendation ? {
+          duree_minutes: recommendation.duree_minutes,
+          volume_eau_m3: recommendation.volume_eau_m3,
+          type_culture: 'Arachide', // Valeur par défaut
+          perimetre_m2: 25000 // 2.5 hectares par défaut
+        } : undefined,
+        remaining_time: status?.remaining_time,
         progress: status?.progress || 0
       });
       
@@ -125,7 +130,7 @@ export const MLIrrigationControl = () => {
                 <div className="flex items-center space-x-2">
                   <Wheat className="h-4 w-4 text-green-600" />
                   <span className="text-purple-700">
-                    Culture: {mlStatus.currentRecommendation.type_culture || 'Arachide'}
+                    Culture: {mlStatus.currentRecommendation.type_culture}
                   </span>
                 </div>
                 

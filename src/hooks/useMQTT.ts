@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import mqtt from 'mqtt';
 
@@ -11,6 +10,7 @@ export const useMQTT = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<MQTTMessage[]>([]);
   const [irrigationStatus, setIrrigationStatus] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const clientRef = useRef<mqtt.MqttClient | null>(null);
   const maxRetries = 3;
@@ -27,6 +27,12 @@ export const useMQTT = () => {
     'wss://broker.emqx.io:8084/mqtt',
     'wss://mqtt.eclipseprojects.io:443/mqtt'
   ];
+
+  const updateIrrigationFromBackend = useCallback((status: boolean, isManual = false) => {
+    console.log('🔄 Mise à jour irrigation depuis backend:', { status, isManual });
+    setIrrigationStatus(status);
+    setIsManualMode(isManual);
+  }, []);
 
   const publishMessage = useCallback((topic: string, message: string, options?: { qos?: 0 | 1 | 2; retain?: boolean }) => {
     console.log('📤 Publication MQTT vers broker PulsarInfinite...');
@@ -55,6 +61,10 @@ export const useMQTT = () => {
           console.log('✅ Message publié avec succès vers broker PulsarInfinite!');
           const newMessage = { topic, message };
           setMessages(prev => [...prev.slice(-9), newMessage]);
+          // Mettre à jour le mode manuel quand on publie une commande manuelle
+          if (topic.includes('swr')) {
+            setIsManualMode(true);
+          }
         }
       });
       
@@ -213,9 +223,11 @@ export const useMQTT = () => {
     isConnected,
     messages,
     irrigationStatus,
+    isManualMode,
     connectionAttempts,
     publishMessage,
     retryConnection,
+    updateIrrigationFromBackend,
     maxRetries
   };
 };
