@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Droplet, Clock, MapPin, Wheat } from 'lucide-react';
+import { Clock, MapPin, Wheat } from 'lucide-react';
 import { backendService } from '@/services/backendService';
 import { useToast } from '@/hooks/use-toast';
 
@@ -79,8 +78,7 @@ export const MLIrrigationControl = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Brain className="h-5 w-5 text-purple-600" />
+        <CardTitle>
           <span>Arrosage Basé sur ML - Prédictions XGBoost</span>
         </CardTitle>
       </CardHeader>
@@ -108,7 +106,7 @@ export const MLIrrigationControl = () => {
           <div className="space-y-3">
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
               <h4 className="font-semibold text-purple-800 flex items-center space-x-2 mb-2">
-                <Brain className="h-4 w-4" />
+                
                 <span>Recommandation ML en Cours</span>
               </h4>
               
@@ -121,7 +119,7 @@ export const MLIrrigationControl = () => {
                 </div>
                 
                 <div className="flex items-center space-x-2">
-                  <Droplet className="h-4 w-4 text-blue-600" />
+                  
                   <span className="text-purple-700">
                     Volume: {mlStatus.currentRecommendation.volume_eau_m3.toFixed(3)} m³
                   </span>

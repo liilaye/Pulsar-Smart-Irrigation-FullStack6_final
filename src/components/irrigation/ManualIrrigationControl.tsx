@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Power, PowerOff, Droplet } from 'lucide-react';
+import { Power, PowerOff } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useToast } from '@/hooks/use-toast';
 
@@ -87,8 +86,7 @@ export const ManualIrrigationControl = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Droplet className="h-5 w-5 text-blue-600" />
+        <CardTitle>
           <span>Arrosage Manuel - Direct MQTT</span>
         </CardTitle>
       </CardHeader>

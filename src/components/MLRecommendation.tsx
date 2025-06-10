@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Brain, Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff } from 'lucide-react';
 import { useBackendSync } from '@/hooks/useBackendSync';
 
 export const MLRecommendation = () => {
@@ -14,8 +13,7 @@ export const MLRecommendation = () => {
   return (
     <Card className="border-blue-200 bg-blue-50">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center space-x-2 text-blue-800">
-          <Brain className="h-5 w-5" />
+        <CardTitle className="text-blue-800">
           <span>Dernière Recommandation ML</span>
         </CardTitle>
       </CardHeader>
