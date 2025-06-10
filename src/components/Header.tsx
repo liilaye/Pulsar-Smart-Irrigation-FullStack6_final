@@ -57,13 +57,6 @@ export const Header = () => {
           </Button>
         </div>
       </div>
-      
-      {/* Copyright Footer */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <p className="text-xs text-gray-500 text-center">
-          Copyright 2025 By Pulsar Technologies - Libasse Laay - Pulsar Smart Irrigation
-        </p>
-      </div>
     </header>
   );
 };

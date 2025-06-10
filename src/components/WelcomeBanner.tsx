@@ -6,7 +6,16 @@ export const WelcomeBanner = () => {
     <div className="mb-8">
       <div 
         className="relative overflow-hidden rounded-xl shadow-lg p-8 text-center bg-white border-2 border-blue-500"
+        style={{
+          backgroundImage: 'url(https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&w=1920&q=80)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
       >
+        {/* Overlay pour améliorer la lisibilité */}
+        <div className="absolute inset-0 bg-white/85 backdrop-blur-sm"></div>
+        
         <div className="relative z-10">
           <div className="flex items-center justify-center mb-4">
             <div className="text-center">
