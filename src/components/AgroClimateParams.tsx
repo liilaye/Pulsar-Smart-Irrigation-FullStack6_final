@@ -158,13 +158,13 @@ export const AgroClimateParams = () => {
           <TabsContent value="climate" className="mt-4">
             {error && (
               <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-sm text-orange-700">⚠️ Connexion OpenWeather en cours... Données de secours affichées</p>
+                <p className="text-sm text-orange-700">Connexion OpenWeather en cours... Données de secours affichées</p>
               </div>
             )}
             
             {isLoading && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">🔄 Chargement des données météo OpenWeather...</p>
+                <p className="text-sm text-blue-700">Chargement des données météo OpenWeather...</p>
               </div>
             )}
             
@@ -181,7 +181,7 @@ export const AgroClimateParams = () => {
             {weatherData && !error && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-xs text-blue-700">
-                  ✅ Données en temps réel depuis OpenWeatherMap API - Mise à jour automatique toutes les 2 minutes
+                  Données en temps réel depuis OpenWeatherMap API - Mise à jour automatique toutes les 2 minutes
                 </p>
               </div>
             )}
