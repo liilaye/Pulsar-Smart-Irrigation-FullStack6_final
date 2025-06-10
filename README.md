@@ -1,9 +1,9 @@
 
-# PulsarInfinite - Système d'Irrigation Intelligent
+# PulsarInfinite Smart Irrigation - Système d'Irrigation Intelligent
 
 ## Description
 
-PulsarInfinite est un système d'irrigation intelligent Full Stack combinant Machine Learning, IoT et analyse météorologique pour optimiser l'irrigation agricole.
+PulsarInfinite Smart Irrigation est un système d'irrigation intelligent Full Stack combinant Machine Learning, IoT et analyse météorologique pour optimiser l'irrigation agricole.
 
 ## Architecture
 
