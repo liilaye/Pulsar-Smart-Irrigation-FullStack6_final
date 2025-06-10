@@ -43,11 +43,11 @@ const Login = () => {
             <img 
               src="/lovable-uploads/e1e9f2a0-3f94-4373-8bc5-9494dc4b2b58.png" 
               alt="PulsarInfinite Logo" 
-              className="h-20 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
-            <div>
+            <div className="flex flex-col justify-center">
               <h1 className="text-xl font-bold" style={{ color: '#0505FB' }}>
-                Pulsar-Infinite
+                PulsarInfinite
               </h1>
             </div>
           </div>
