@@ -132,7 +132,7 @@ export const ManualIrrigationControl = () => {
         {!isConnected && (
           <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
             <p className="text-sm text-orange-700">
-              ⚠️ Broker MQTT déconnecté. Vérifiez la connexion au broker {process.env.MQTT_BROKER_HOST || '217.182.210.54'}
+              ⚠️ Broker MQTT déconnecté. Vérifiez la connexion au broker 217.182.210.54
             </p>
           </div>
         )}
