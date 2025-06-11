@@ -43,9 +43,9 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    print("🚀 Backend Flask PulsarInfinite disponible sur http://localhost:5002")
-    print("📡 CORS configuré pour le frontend React")
-    print("🔗 Endpoints disponibles :")
+    print("Backend Flask PulsarInfinite disponible sur http://localhost:5002")
+    print("CORS configuré pour le frontend React")
+    print("Endpoints disponibles :")
     print("   - GET  /api/health")
     print("   - POST /api/arroser")
     print("   - GET  /api/weather/thies")

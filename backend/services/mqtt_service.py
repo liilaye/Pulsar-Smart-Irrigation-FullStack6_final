@@ -15,7 +15,6 @@ from config.database import log_mqtt, log_irrigation
 class MQTTService:
     def __init__(self):
         self.current_irrigation_thread = None
-        # Compatible avec paho-mqtt v2.x sans utiliser callback_api_version
         self.client = mqtt.Client(client_id="flask_backend")
         self.client.on_connect = self.on_connect
         self.client.on_publish = self.on_publish
@@ -33,11 +32,26 @@ class MQTTService:
         print("📤 Message MQTT publié")
 
     def envoyer_commande_mqtt(self, device_state: int):
+        timestamp = str(int(time.time() * 1000))
         payload = {
-            "switch_relay": {
-                "device": device_state
+            "type": "JOIN",
+            "fcnt": 0,
+            "json": {
+                "switch_relay": {
+                    "device": device_state
+                }
+            },
+            "mqttHeaders": {
+                "mqtt_receivedRetained": "false",
+                "mqtt_id": "0",
+                "mqtt_duplicate": "false",
+                "id": f"flask-{timestamp}",
+                "mqtt_receivedTopic": MQTT_TOPIC_DATA,
+                "mqtt_receivedQos": "0",
+                "timestamp": timestamp
             }
         }
+
         try:
             print(f"📤 Publication MQTT: {payload} → {MQTT_TOPIC_DATA}")
             result = self.client.publish(
@@ -63,7 +77,7 @@ class MQTTService:
             log_irrigation("STOP", duree_sec / 60, volume_m3, f"MQTT_STOP_{status_stop}", source)
             print("⏹️ Arrosage terminé")
         except Exception as e:
-            print(f"Erreur séquence arrosage: {e}")
+            print(f"❌ Erreur séquence arrosage: {e}")
             self.envoyer_commande_mqtt(0)
             log_irrigation("ERROR", None, None, f"ERROR_{str(e)}", source)
 

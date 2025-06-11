@@ -1,3 +1,4 @@
+// Types et interfaces
 export interface IrrigationRequest {
   durationHours: number;
   durationMinutes: number;
@@ -40,25 +41,23 @@ export interface MLPredictionAnalysis {
 import { irrigationDataService } from './irrigationDataService';
 
 class BackendService {
-  // Configuration dynamique pour développement local
   private getBaseUrl(): string {
-    // En développement local, utiliser localhost
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5002/api';
-    }
-    // Pour les autres environnements, utiliser le proxy Vite
-    return '/api';
+  return '/api'; // Toujours utiliser le proxy Vite (dev ou prod)
   }
+  // private getBaseUrl(): string {
+  //   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  //     return 'http://localhost:5002/api';
+  //   }
+  //   return '/api';
+  // }
 
-  // Méthode utilitaire pour les requêtes avec gestion d'erreurs améliorée
   private async makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const fullUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url.startsWith('/') ? url : `/${url}`}`;
       console.log(`🔄 Requête vers: ${fullUrl}`);
-      
       const response = await fetch(fullUrl, {
         ...options,
         signal: controller.signal,
@@ -67,7 +66,7 @@ class BackendService {
           ...options.headers,
         },
       });
-      
+
       clearTimeout(timeoutId);
       console.log(`✅ Réponse reçue: ${response.status} ${response.statusText}`);
       return response;
@@ -76,6 +75,38 @@ class BackendService {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Timeout: Le serveur Flask ne répond pas (10s)');
       }
+      throw error;
+    }
+  }
+
+  async arroserAvecML(features: Record<string, number>): Promise<MLPrediction> {
+    try {
+      console.log('🤖 Envoi des features pour arrosage IA (ML) vers Flask...');
+      const response = await this.makeRequest('/arroser', {
+        method: 'POST',
+        body: JSON.stringify({ features })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Recommandation IA reçue depuis Flask:', data);
+
+      if (data.status === 'ok') {
+        irrigationDataService.addIrrigationData({
+          timestamp: new Date().toISOString(),
+          volume_m3: data.volume_eau_m3,
+          duree_minutes: data.duree_minutes,
+          source: 'ML',
+          status: 'ok'
+        });
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur lors de la requête ML:', error);
       throw error;
     }
   }
@@ -96,8 +127,7 @@ class BackendService {
 
       const data = await response.json();
       console.log('✅ Réponse ML Flask reçue:', data);
-      
-      // Enregistrer les données d'irrigation pour le graphique
+
       if (data.status === 'ok') {
         irrigationDataService.addIrrigationData({
           timestamp: new Date().toISOString(),
@@ -107,7 +137,7 @@ class BackendService {
           status: data.status
         });
       }
-      
+
       return data;
     } catch (error) {
       console.error('❌ Erreur requête ML Flask:', error);
@@ -130,12 +160,10 @@ class BackendService {
 
       const data = await response.json();
       console.log('✅ Réponse irrigation manuelle Flask:', data);
-      
-      // Enregistrer les données d'irrigation manuelle pour le graphique
+
       if (data.success) {
         const totalMinutes = (durationHours * 60) + durationMinutes;
-        const estimatedVolume = (totalMinutes * 20) / 1000; // Estimation basée sur débit 20L/min
-        
+        const estimatedVolume = (totalMinutes * 20) / 1000;
         irrigationDataService.addIrrigationData({
           timestamp: new Date().toISOString(),
           volume_m3: estimatedVolume,
@@ -144,7 +172,7 @@ class BackendService {
           status: 'ok'
         });
       }
-      
+
       return data;
     } catch (error) {
       console.error('❌ Erreur irrigation manuelle Flask:', error);
@@ -242,22 +270,20 @@ class BackendService {
     }
   }
 
-  // Nouvelles méthodes pour les analyses temps réel avec gestion d'erreurs
   async getTrendAnalysis(): Promise<TrendAnalysis | null> {
     try {
       console.log('Récupération analyse des tendances Flask...');
       const response = await this.makeRequest('/analytics/trends');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('Analyse des tendances reçue:', data);
       return data;
     } catch (error) {
       console.error('Erreur analyse tendances Flask:', error);
-      // Données de fallback
       return {
         waterConsumption: 0.85,
         soilMoisture: 42,
@@ -271,17 +297,16 @@ class BackendService {
     try {
       console.log('🧠 Récupération prédictions ML Flask...');
       const response = await this.makeRequest('/analytics/ml-predictions');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('✅ Prédictions ML reçues:', data);
       return data;
     } catch (error) {
       console.error('❌ Erreur prédictions ML Flask:', error);
-      // Données de fallback
       return {
         nextIrrigationHours: 6,
         recommendedDuration: 30,
@@ -291,7 +316,6 @@ class BackendService {
     }
   }
 
-  // Test de connexion amélioré pour développement local
   async testConnection(): Promise<boolean> {
     try {
       console.log('🔍 Test de connexion Flask...');
@@ -305,24 +329,10 @@ class BackendService {
     }
   }
 
-  // Données d'exemple pour les paramètres agro-climatiques
   getDefaultSoilClimateFeatures(): number[] {
     return [
-      25.0,  // Température air
-      0,   // Précipitations
-      65,    // Humidité air
-      12.0,  // Vitesse vent
-      1,     // Type culture (arachide)
-      10000, // Périmètre (2.5 ha = 25000 m²)
-      26.0,  // Température sol
-      42,    // Humidité sol
-      1.2,   // EC
-      6.8,   // pH sol
-      45,    // Azote
-      38,    // Phosphore
-      152,   // Potassium
-      3,     // Fertilité (score 1-5)
-      2      // Type sol (sablo-argileux)
+      25.0, 0, 65, 12.0, 1, 10000,
+      26.0, 42, 1.2, 6.8, 45, 38, 152, 3, 2
     ];
   }
 }
