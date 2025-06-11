@@ -1,4 +1,3 @@
-
 import mqtt from 'mqtt';
 
 interface MQTTMessage {
@@ -29,7 +28,8 @@ class MQTTService {
     debugLogs: []
   };
   
-  private readonly BROKER_URL = 'ws://217.182.210.54:8080/mqtt';
+  // Utiliser WSS au lieu de WS pour la sécurité HTTPS
+  private readonly BROKER_URL = 'wss://217.182.210.54:8080/mqtt';
   private readonly CLIENT_OPTIONS: mqtt.IClientOptions = {
     clientId: `PulsarInfinite_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     connectTimeout: 15000,
@@ -74,7 +74,7 @@ class MQTTService {
   }
 
   async connect(): Promise<boolean> {
-    this.addDebugLog(`🔄 Tentative de connexion au broker: ${this.BROKER_URL}`);
+    this.addDebugLog(`🔄 Tentative de connexion au broker sécurisé: ${this.BROKER_URL}`);
     this.addDebugLog(`📋 Client ID: ${this.CLIENT_OPTIONS.clientId}`);
 
     this.cleanup();
@@ -86,7 +86,7 @@ class MQTTService {
       this.state.lastError = null;
 
       this.client.on('connect', (connack) => {
-        this.addDebugLog(`✅ Connexion réussie! CONNACK: ${JSON.stringify(connack)}`);
+        this.addDebugLog(`✅ Connexion sécurisée réussie! CONNACK: ${JSON.stringify(connack)}`);
         this.state.isConnected = true;
         this.state.reconnectAttempts = 0;
         this.state.connectionHealth = 100;
@@ -204,8 +204,8 @@ class MQTTService {
 
     // Forcer QoS 1 et retain true par défaut pour assurer la livraison
     const publishOptions = {
-      qos: 1 as 0 | 1 | 2, // Toujours QoS 1 pour garantir la livraison
-      retain: true // Toujours retain true pour que les objets connectés reçoivent les commandes
+      qos: 1 as 0 | 1 | 2,
+      retain: true
     };
 
     this.addDebugLog(`📤 Publication: ${topic} → ${message.substring(0, 100)}... (QoS: ${publishOptions.qos}, Retain: ${publishOptions.retain})`);
@@ -256,7 +256,6 @@ class MQTTService {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      // Toujours utiliser QoS 1 et retain true pour les commandes critiques
       const success = this.publish('data/PulsarInfinite/swr', JSON.stringify(payload), { qos: 1, retain: true });
       
       if (success) {
@@ -320,7 +319,6 @@ class MQTTService {
   private startHealthCheck() {
     this.healthCheckInterval = setInterval(() => {
       if (this.state.isConnected && this.client) {
-        // Utiliser QoS 1 et retain true même pour les ping
         this.publish('data/PulsarInfinite/ping', JSON.stringify({
           timestamp: Date.now(),
           type: 'healthcheck',
@@ -402,7 +400,6 @@ class MQTTService {
     };
   }
 
-  // Méthode de test pour diagnostics
   async testConnection(): Promise<{ success: boolean; details: string[] }> {
     const details: string[] = [];
     
@@ -421,7 +418,6 @@ class MQTTService {
     
     details.push('✅ Client connecté');
     
-    // Test de publication
     const testPayload = JSON.stringify({
       type: 'TEST',
       timestamp: Date.now(),
