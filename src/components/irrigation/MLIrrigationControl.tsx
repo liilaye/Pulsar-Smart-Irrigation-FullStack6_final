@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -142,10 +141,7 @@ export const MLIrrigationControl = () => {
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Brain className="h-5 w-5 text-purple-600" />
-            <span>Irrigation Intelligente - XGBoost ML</span>
-          </div>
+          <span>Irrigation Intelligent basé sur ML</span>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${
               canUseML ? 'bg-green-500 animate-pulse' : 'bg-red-500'
@@ -193,11 +189,6 @@ export const MLIrrigationControl = () => {
 
         {/* Contrôles ML */}
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Brain className="h-4 w-4 text-purple-600" />
-            <span className="font-medium">Intelligence Artificielle</span>
-          </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Button
               onClick={handleMLRecommendation}
@@ -216,14 +207,18 @@ export const MLIrrigationControl = () => {
             <Button
               onClick={handleMLAutoIrrigation}
               disabled={!canUseML || isLoading}
-              className="h-12 bg-purple-600 hover:bg-purple-700 flex items-center space-x-2"
+              className={`h-12 flex items-center space-x-2 ${
+                isMLActive 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
               {isLoading ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Zap className="h-4 w-4" />
               )}
-              <span>Démarrer ML AUTO</span>
+              <span>Irrigation ML automatisé</span>
             </Button>
           </div>
         </div>

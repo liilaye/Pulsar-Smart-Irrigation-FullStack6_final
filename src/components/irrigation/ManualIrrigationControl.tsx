@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -128,10 +127,7 @@ export const ManualIrrigationControl = () => {
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Droplets className="h-5 w-5 text-blue-600" />
-            <span>Contrôle Manuel de l'Irrigation</span>
-          </div>
+          <span>Contrôle Manuel de l'Irrigation</span>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${
               isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
