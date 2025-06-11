@@ -1,4 +1,3 @@
-
 // Types et interfaces
 export interface IrrigationRequest {
   durationHours: number;
@@ -129,12 +128,12 @@ class BackendService {
       console.log('✅ Recommandation IA reçue depuis Flask:', data);
 
       if (data.status === 'ok') {
-        irrigationDataService.addIrrigationData({
-          timestamp: new Date().toISOString(),
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
           volume_m3: data.volume_eau_m3,
           duree_minutes: data.duree_minutes,
-          source: 'ML',
-          status: 'ok'
+          source: 'ml',
+          type: 'ml'
         });
       }
 
@@ -164,12 +163,12 @@ class BackendService {
       console.log('✅ Réponse ML Flask reçue:', data);
 
       if (data.status === 'ok') {
-        irrigationDataService.addIrrigationData({
-          timestamp: new Date().toISOString(),
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
           volume_m3: data.volume_eau_m3,
           duree_minutes: data.duree_minutes,
-          source: 'ML',
-          status: data.status
+          source: 'ml',
+          type: 'ml'
         });
       }
 
@@ -199,12 +198,12 @@ class BackendService {
       if (data.success) {
         const totalMinutes = (durationHours * 60) + durationMinutes;
         const estimatedVolume = (totalMinutes * 20) / 1000;
-        irrigationDataService.addIrrigationData({
-          timestamp: new Date().toISOString(),
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
           volume_m3: estimatedVolume,
           duree_minutes: totalMinutes,
-          source: 'MANUAL',
-          status: 'ok'
+          source: 'manual',
+          type: 'manual'
         });
       }
 
@@ -350,8 +349,6 @@ class BackendService {
       };
     }
   }
-
-  
 
   getDefaultSoilClimateFeatures(): number[] {
     // ✅ CORRECTION: Retourner un tableau ordonné de 15 valeurs
