@@ -114,6 +114,23 @@ class BackendService {
     }
   }
 
+  private async handleIrrigationError(error: any, operation: string): Promise<never> {
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+    
+    // Tentative de reset automatique si erreur de blocage
+    if (errorMessage.includes('Arrosage en cours') || errorMessage.includes('déjà en cours')) {
+      console.log('🔄 Tentative auto-reset suite à erreur de blocage...');
+      try {
+        await this.resetIrrigationState();
+        throw new Error(`Irrigation bloquée - État réinitialisé automatiquement. Veuillez réessayer ${operation}.`);
+      } catch (resetError) {
+        throw new Error(`Erreur ${operation} + échec reset: ${errorMessage}`);
+      }
+    }
+    
+    throw new Error(`Erreur ${operation} Backend Flask: ${errorMessage}`);
+  }
+
   async getMLRecommendation(features: number[]): Promise<MLPrediction> {
     try {
       console.log('🤖 Récupération recommandation ML via Flask backend...');
@@ -127,14 +144,6 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
-        
-        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
-        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
-          console.log('🔄 Tentative auto-reset...');
-          await this.resetIrrigationState();
-          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
-        }
-        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -143,8 +152,7 @@ class BackendService {
       return data;
     } catch (error) {
       console.error('❌ Erreur recommandation ML Flask:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw new Error(`Erreur recommandation ML Backend Flask: ${errorMessage}`);
+      await this.handleIrrigationError(error, 'recommandation ML');
     }
   }
 
@@ -164,14 +172,6 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
-        
-        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
-        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
-          console.log('🔄 Tentative auto-reset...');
-          await this.resetIrrigationState();
-          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
-        }
-        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -193,8 +193,7 @@ class BackendService {
       return data;
     } catch (error) {
       console.error('❌ Erreur irrigation manuelle Flask:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      return { success: false, message: `Erreur Backend Flask: ${errorMessage}` };
+      await this.handleIrrigationError(error, 'irrigation manuelle');
     }
   }
 
@@ -211,14 +210,6 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
-        
-        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
-        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
-          console.log('🔄 Tentative auto-reset...');
-          await this.resetIrrigationState();
-          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
-        }
-        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -242,8 +233,7 @@ class BackendService {
       return data;
     } catch (error) {
       console.error('❌ Erreur requête ML Flask:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      throw new Error(`Erreur ML Backend Flask: ${errorMessage}`);
+      await this.handleIrrigationError(error, 'irrigation ML');
     }
   }
 
