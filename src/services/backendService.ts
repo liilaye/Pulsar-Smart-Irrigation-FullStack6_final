@@ -42,22 +42,18 @@ import { irrigationDataService } from './irrigationDataService';
 
 class BackendService {
   private getBaseUrl(): string {
-  return '/api'; // Toujours utiliser le proxy Vite (dev ou prod)
+    // En local, utiliser le proxy Vite qui redirige vers localhost:5002
+    return '/api';
   }
-  // private getBaseUrl(): string {
-  //   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-  //     return 'http://localhost:5002/api';
-  //   }
-  //   return '/api';
-  // }
 
   private async makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const fullUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url.startsWith('/') ? url : `/${url}`}`;
       console.log(`🔄 Requête vers: ${fullUrl}`);
+      
       const response = await fetch(fullUrl, {
         ...options,
         signal: controller.signal,
@@ -73,9 +69,45 @@ class BackendService {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Timeout: Le serveur Flask ne répond pas (10s)');
+        throw new Error('Timeout: Le serveur Flask ne répond pas (15s)');
       }
       throw error;
+    }
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      console.log('🔍 Test de connexion Flask...');
+      const response = await this.makeRequest('/health');
+      const isConnected = response.ok;
+      console.log(`${isConnected ? '✅' : '❌'} Test connexion Flask: ${isConnected ? 'OK' : 'ÉCHEC'}`);
+      return isConnected;
+    } catch (error) {
+      console.error('❌ Test connexion Flask échoué:', error);
+      return false;
+    }
+  }
+
+  async publishMQTTCommand(device: 0 | 1): Promise<BackendResponse> {
+    try {
+      console.log(`📡 Envoi commande MQTT via Flask: device=${device}`);
+      const response = await this.makeRequest('/mqtt/test-publish', {
+        method: 'POST',
+        body: JSON.stringify({ device })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Commande MQTT envoyée:', data);
+        return { success: true, message: 'Commande MQTT envoyée', data };
+      } else {
+        const error = await response.text();
+        console.error('❌ Erreur commande MQTT:', error);
+        return { success: false, message: `Erreur HTTP ${response.status}: ${error}` };
+      }
+    } catch (error) {
+      console.error('❌ Erreur requête MQTT Flask:', error);
+      return { success: false, message: `Erreur de connexion: ${error}` };
     }
   }
 
@@ -316,18 +348,7 @@ class BackendService {
     }
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      console.log('🔍 Test de connexion Flask...');
-      const response = await this.makeRequest('/health');
-      const isConnected = response.ok;
-      console.log(`${isConnected ? '✅' : '❌'} Test connexion Flask: ${isConnected ? 'OK' : 'ÉCHEC'}`);
-      return isConnected;
-    } catch (error) {
-      console.error('❌ Test connexion Flask échoué:', error);
-      return false;
-    }
-  }
+  
 
   getDefaultSoilClimateFeatures(): number[] {
     return [

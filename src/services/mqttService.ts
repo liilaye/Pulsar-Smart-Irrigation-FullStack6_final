@@ -1,4 +1,3 @@
-
 interface MQTTMessage {
   topic: string;
   payload: string;
@@ -18,7 +17,7 @@ interface MQTTServiceState {
 class MQTTService {
   private state: MQTTServiceState = {
     isConnected: false,
-    currentBroker: 'Backend Flask Proxy',
+    currentBroker: 'Backend Flask Proxy (Local)',
     reconnectAttempts: 0,
     lastMessage: null,
     connectionHealth: 0,
@@ -31,7 +30,7 @@ class MQTTService {
   private healthCheckInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.addDebugLog('🚀 Initialisation du service MQTT via Backend Flask');
+    this.addDebugLog('🚀 Initialisation du service MQTT via Backend Flask (Local)');
     this.startHealthCheck();
     this.connect();
   }
@@ -49,7 +48,7 @@ class MQTTService {
   }
 
   async connect(): Promise<boolean> {
-    this.addDebugLog('🔄 Test de connexion via Backend Flask...');
+    this.addDebugLog('🔄 Test de connexion via Backend Flask (localhost:5002)...');
     
     try {
       const response = await fetch('/api/health', {
@@ -60,7 +59,7 @@ class MQTTService {
       });
 
       if (response.ok) {
-        this.addDebugLog('✅ Backend Flask connecté et accessible');
+        this.addDebugLog('✅ Backend Flask local connecté et accessible');
         this.state.isConnected = true;
         this.state.reconnectAttempts = 0;
         this.state.connectionHealth = 100;
@@ -71,7 +70,7 @@ class MQTTService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      const errorMsg = `Erreur connexion backend: ${error}`;
+      const errorMsg = `Erreur connexion backend local: ${error}`;
       this.addDebugLog(`❌ ${errorMsg}`);
       this.state.isConnected = false;
       this.state.lastError = errorMsg;
@@ -98,10 +97,10 @@ class MQTTService {
 
   async publishIrrigationCommand(deviceState: 0 | 1, retries = 3): Promise<boolean> {
     for (let attempt = 1; attempt <= retries; attempt++) {
-      this.addDebugLog(`🚿 Tentative ${attempt}/${retries} - Commande irrigation via backend: ${deviceState ? 'ON' : 'OFF'}`);
+      this.addDebugLog(`🚿 Tentative ${attempt}/${retries} - Commande irrigation via backend local: ${deviceState ? 'ON' : 'OFF'}`);
       
       if (!this.state.isConnected) {
-        this.addDebugLog('❌ Reconnexion backend nécessaire...');
+        this.addDebugLog('❌ Reconnexion backend local nécessaire...');
         await this.connect();
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -117,7 +116,7 @@ class MQTTService {
 
         if (response.ok) {
           const result = await response.json();
-          this.addDebugLog(`✅ Commande irrigation envoyée via backend: ${JSON.stringify(result)}`);
+          this.addDebugLog(`✅ Commande irrigation envoyée via backend local: ${JSON.stringify(result)}`);
           
           // Simuler la réception d'un message de confirmation
           const confirmationMessage: MQTTMessage = {
@@ -135,10 +134,10 @@ class MQTTService {
           return true;
         } else {
           const error = await response.text();
-          this.addDebugLog(`❌ Erreur backend: ${error}`);
+          this.addDebugLog(`❌ Erreur backend local: ${error}`);
         }
       } catch (error) {
-        this.addDebugLog(`❌ Erreur requête backend: ${error}`);
+        this.addDebugLog(`❌ Erreur requête backend local: ${error}`);
       }
       
       if (attempt < retries) {
@@ -155,23 +154,20 @@ class MQTTService {
   private startHealthCheck() {
     this.healthCheckInterval = setInterval(async () => {
       if (this.state.isConnected) {
-        // Vérifier périodiquement la connexion backend
         try {
           const response = await fetch('/api/health');
           if (!response.ok) {
             this.state.isConnected = false;
             this.state.connectionHealth = 0;
-            this.addDebugLog('❌ Backend inaccessible lors du health check');
+            this.addDebugLog('❌ Backend local inaccessible lors du health check');
           } else {
             this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 1);
           }
         } catch (error) {
           this.state.isConnected = false;
           this.state.connectionHealth = 0;
-          this.addDebugLog(`❌ Erreur health check: ${error}`);
+          this.addDebugLog(`❌ Erreur health check local: ${error}`);
         }
-      } else {
-        this.state.connectionHealth = 0;
       }
       
       this.notifyListeners();
@@ -216,10 +212,10 @@ class MQTTService {
   getBrokerInfo() {
     return {
       current: this.state.currentBroker,
-      available: [{ url: 'Backend Flask Proxy', priority: 1 }],
+      available: [{ url: 'Backend Flask Proxy (Local)', priority: 1 }],
       health: this.state.connectionHealth,
       reconnectAttempts: this.state.reconnectAttempts,
-      clientId: 'Flask_Backend_Proxy',
+      clientId: 'Flask_Backend_Proxy_Local',
       lastError: this.state.lastError,
       debugLogs: this.getDebugLogs()
     };
