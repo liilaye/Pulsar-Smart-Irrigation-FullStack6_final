@@ -1,4 +1,5 @@
 
+
 import mqtt from 'mqtt';
 
 interface MQTTMessage {
@@ -169,19 +170,20 @@ class MQTTService {
       return false;
     }
 
+    // Forcer QoS 1 et retain true par défaut pour assurer la livraison
     const publishOptions = {
-      qos: (options.qos || 1) as 0 | 1 | 2,
-      retain: options.retain || false
+      qos: 1 as 0 | 1 | 2, // Toujours QoS 1 pour garantir la livraison
+      retain: true // Toujours retain true pour que les objets connectés reçoivent les commandes
     };
 
-    console.log(`📤 Publication MQTT: ${topic} → ${message}`);
+    console.log(`📤 Publication MQTT: ${topic} → ${message} (QoS: ${publishOptions.qos}, Retain: ${publishOptions.retain})`);
     
     this.client.publish(topic, message, publishOptions, (error) => {
       if (error) {
         console.error('❌ Erreur publication MQTT:', error);
         this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 10);
       } else {
-        console.log('✅ Message publié avec succès!');
+        console.log('✅ Message publié avec succès (QoS 1, Retain true)!');
         this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 2);
       }
       this.notifyListeners();
@@ -220,6 +222,7 @@ class MQTTService {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
+      // Toujours utiliser QoS 1 et retain true pour les commandes critiques
       const success = this.publish('data/PulsarInfinite/swr', JSON.stringify(payload), { qos: 1, retain: true });
       
       if (success) {
@@ -277,11 +280,12 @@ class MQTTService {
   private startHealthCheck() {
     this.healthCheckInterval = setInterval(() => {
       if (this.state.isConnected && this.client) {
+        // Utiliser QoS 1 et retain true même pour les ping
         this.publish('data/PulsarInfinite/ping', JSON.stringify({
           timestamp: Date.now(),
           type: 'healthcheck',
           client_id: this.CLIENT_OPTIONS.clientId
-        }), { qos: 0 });
+        }), { qos: 1, retain: true });
 
         if (this.state.lastMessage && 
             Date.now() - this.state.lastMessage.timestamp.getTime() > 30000) {
