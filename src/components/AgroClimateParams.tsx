@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Cloud, Thermometer, TestTube, Leaf, MapPin, Eye, Wind } from 'lucide-react';
 import { useWeather } from '@/hooks/useWeather';
+import { Recommendations } from './Recommendations';
 
 const getWeatherIcon = (iconType: string) => {
   switch (iconType) {
@@ -65,153 +66,172 @@ export const AgroClimateParams = () => {
   ];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Thermometer className="h-5 w-5 text-blue-600" />
-            <span>Paramètres Agro-climatiques</span>
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-              OpenWeather API
-            </span>
-          </div>
-          {weatherData && (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-2xl">{getWeatherIcon(weatherData.weatherIcon)}</span>
-              <div className="text-right">
-                <span className="text-sm font-medium text-gray-900">{weatherData.location}</span>
-                {weatherData.description && (
-                  <p className="text-xs text-gray-600">{weatherData.description}</p>
-                )}
-              </div>
+              <Thermometer className="h-5 w-5 text-blue-600" />
+              <span>Paramètres Agro-climatiques</span>
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                OpenWeather API
+              </span>
             </div>
-          )}
-        </CardTitle>
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Label className="text-sm">Région:</Label>
-            <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => setSelectedLocation(value)}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="thies">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>Thiès</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="taiba-ndiaye">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>Taïba Ndiaye</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="hann-maristes">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>Hann Maristes</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="dakar">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>Dakar</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="bargny">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>Bargny</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            {weatherData && (
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">{getWeatherIcon(weatherData.weatherIcon)}</span>
+                <div className="text-right">
+                  <span className="text-sm font-medium text-gray-900">{weatherData.location}</span>
+                  {weatherData.description && (
+                    <p className="text-xs text-gray-600">{weatherData.description}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardTitle>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Label className="text-sm">Région:</Label>
+              <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => setSelectedLocation(value)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="thies">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Thiès</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="taiba-ndiaye">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Taïba Ndiaye</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="hann-maristes">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Hann Maristes</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="dakar">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Dakar</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bargny">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Bargny</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {!error && weatherData && (
+              <div className="flex items-center space-x-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>Données temps réel</span>
+              </div>
+            )}
           </div>
-          
-          {!error && weatherData && (
-            <div className="flex items-center space-x-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Données temps réel</span>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="climate" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="climate" className="flex items-center space-x-2">
-              <Cloud className="h-4 w-4" />
-              <span>Climatique</span>
-            </TabsTrigger>
-            <TabsTrigger value="soil" className="flex items-center space-x-2">
-              <TestTube className="h-4 w-4" />
-              <span>Sol</span>
-            </TabsTrigger>
-            <TabsTrigger value="other" className="flex items-center space-x-2">
-              <Leaf className="h-4 w-4" />
-              <span>Autres</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="climate" className="mt-4">
-            {error && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-sm text-orange-700">Connexion OpenWeather en cours... Données de secours affichées</p>
-              </div>
-            )}
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="climate" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="climate" className="flex items-center space-x-2">
+                <Cloud className="h-4 w-4" />
+                <span>Climatique</span>
+              </TabsTrigger>
+              <TabsTrigger value="soil" className="flex items-center space-x-2">
+                <TestTube className="h-4 w-4" />
+                <span>Sol</span>
+              </TabsTrigger>
+              <TabsTrigger value="other" className="flex items-center space-x-2">
+                <Leaf className="h-4 w-4" />
+                <span>Autres</span>
+              </TabsTrigger>
+            </TabsList>
             
-            {isLoading && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">Chargement des données météo OpenWeather...</p>
+            <TabsContent value="climate" className="mt-4">
+              {error && (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-700">Connexion OpenWeather en cours... Données de secours affichées</p>
+                </div>
+              )}
+              
+              {isLoading && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">Chargement des données météo OpenWeather...</p>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {climateData.map((param, index) => (
+                  <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
+                    <h4 className="font-medium text-sm mb-1">{param.name}</h4>
+                    <p className="text-lg font-bold">{param.value}</p>
+                    <p className="text-xs capitalize">{param.status}</p>
+                  </div>
+                ))}
               </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {climateData.map((param, index) => (
-                <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
-                  <h4 className="font-medium text-sm mb-1">{param.name}</h4>
-                  <p className="text-lg font-bold">{param.value}</p>
-                  <p className="text-xs capitalize">{param.status}</p>
+              
+              {weatherData && !error && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    Données en temps réel depuis OpenWeatherMap API - Mise à jour automatique toutes les 2 minutes
+                  </p>
                 </div>
-              ))}
-            </div>
+              )}
+            </TabsContent>
             
-            {weatherData && !error && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  Données en temps réel depuis OpenWeatherMap API - Mise à jour automatique toutes les 2 minutes
-                </p>
+            <TabsContent value="soil" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {soilData.map((param, index) => (
+                  <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
+                    <h4 className="font-medium text-sm">{param.name}</h4>
+                    <p className="text-lg font-bold">{param.value}</p>
+                    <p className="text-xs capitalize">{param.status}</p>
+                  </div>
+                ))}
               </div>
+            </TabsContent>
+            
+            <TabsContent value="other" className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {otherData.map((param, index) => (
+                  <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
+                    <h4 className="font-medium text-sm">{param.name}</h4>
+                    <p className="text-lg font-bold">{param.value}</p>
+                    <p className="text-xs capitalize">{param.status}</p>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Cloud className="h-5 w-5 text-blue-600" />
+            <span>Conditions Météo</span>
+            {weatherData && (
+              <span className="text-sm font-normal text-gray-600">
+                - {weatherData.location}
+              </span>
             )}
-          </TabsContent>
-          
-          <TabsContent value="soil" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {soilData.map((param, index) => (
-                <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
-                  <h4 className="font-medium text-sm">{param.name}</h4>
-                  <p className="text-lg font-bold">{param.value}</p>
-                  <p className="text-xs capitalize">{param.status}</p>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="other" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {otherData.map((param, index) => (
-                <div key={index} className={`p-3 rounded-lg border ${getStatusColor(param.status)}`}>
-                  <h4 className="font-medium text-sm">{param.name}</h4>
-                  <p className="text-lg font-bold">{param.value}</p>
-                  <p className="text-xs capitalize">{param.status}</p>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Recommendations selectedLocation={selectedLocation} />
+        </CardContent>
+      </Card>
+    </div>
   );
 };

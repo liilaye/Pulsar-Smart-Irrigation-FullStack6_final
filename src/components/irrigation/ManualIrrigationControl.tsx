@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Volume2, Play, Square, Bot, Lightbulb } from 'lucide-react';
+import { Clock, Volume2, Play, Square, Bot, Lightbulb, Leaf, Droplets, TrendingUp } from 'lucide-react';
 import { irrigationSyncService } from '@/services/irrigationSyncService';
 import { irrigationDataService } from '@/services/irrigationDataService';
 import { api } from '@/services/apiService';
@@ -19,6 +19,14 @@ interface MLRecommendation {
   volume_eau_m3: number;
 }
 
+interface NPKRecommendation {
+  azote: string;
+  phosphore: string;
+  potassium: string;
+  conseil: string;
+  action: string;
+}
+
 export const ManualIrrigationControl = () => {
   const [manualStatus, setManualStatus] = useState<ManualIrrigationStatus>({
     isActive: false,
@@ -31,6 +39,38 @@ export const ManualIrrigationControl = () => {
   const [activeDuration, setActiveDuration] = useState<number>(0);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Génération des recommandations NPK basées sur le modèle XGBoost
+  const generateNPKRecommendation = (recommendation: MLRecommendation): NPKRecommendation => {
+    const volumeRatio = recommendation.volume_eau_m3;
+    const durationRatio = recommendation.duree_minutes / 30; // Référence 30 min
+    
+    if (volumeRatio < 0.5) {
+      return {
+        azote: "Modéré (40-50 mg/kg)",
+        phosphore: "Optimal (35-40 mg/kg)", 
+        potassium: "Élevé (140-160 mg/kg)",
+        conseil: "Sol bien hydraté, maintenir apports NPK standards",
+        action: "Fertilisation d'entretien recommandée"
+      };
+    } else if (volumeRatio > 1.2) {
+      return {
+        azote: "Réduit (30-35 mg/kg)",
+        phosphore: "Standard (25-30 mg/kg)",
+        potassium: "Très élevé (160-180 mg/kg)",
+        conseil: "Irrigation intensive, augmenter potassium pour éviter le lessivage",
+        action: "Fractionnement des apports NPK requis"
+      };
+    } else {
+      return {
+        azote: "Optimal (45-55 mg/kg)",
+        phosphore: "Bon (38-45 mg/kg)",
+        potassium: "Standard (150-170 mg/kg)",
+        conseil: "Conditions équilibrées, apports NPK normaux",
+        action: "Programme de fertilisation standard"
+      };
+    }
+  };
 
   useEffect(() => {
     // S'abonner aux changements d'état global
@@ -301,7 +341,7 @@ export const ManualIrrigationControl = () => {
           </Button>
 
           {mlRecommendation && (
-            <div className="p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+            <div className="p-4 bg-white rounded-lg border border-blue-200 shadow-sm space-y-4">
               <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
                 <Bot className="h-4 w-4 mr-2" />
                 Prédiction ML pour Arrosage Manuel
@@ -309,7 +349,7 @@ export const ManualIrrigationControl = () => {
               
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-blue-600" />
+                  <Droplets className="h-4 w-4 text-blue-600" />
                   <div>
                     <p className="text-sm text-blue-700 font-medium">
                       Durée suggérée
@@ -332,6 +372,47 @@ export const ManualIrrigationControl = () => {
                   </div>
                 </div>
               </div>
+
+              {(() => {
+                const npkRecommendation = generateNPKRecommendation(mlRecommendation);
+                return (
+                  <div className="border-t border-blue-100 pt-4">
+                    <h5 className="font-semibold text-blue-800 mb-3 flex items-center">
+                      <Leaf className="h-4 w-4 mr-2" />
+                      Recommandations Nutriments NPK
+                    </h5>
+                    
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      <div className="text-center p-2 bg-green-50 rounded border border-green-200">
+                        <p className="text-xs text-green-600 font-medium">Azote (N)</p>
+                        <p className="text-sm font-bold text-green-800">{npkRecommendation.azote}</p>
+                      </div>
+                      <div className="text-center p-2 bg-orange-50 rounded border border-orange-200">
+                        <p className="text-xs text-orange-600 font-medium">Phosphore (P)</p>
+                        <p className="text-sm font-bold text-orange-800">{npkRecommendation.phosphore}</p>
+                      </div>
+                      <div className="text-center p-2 bg-purple-50 rounded border border-purple-200">
+                        <p className="text-xs text-purple-600 font-medium">Potassium (K)</p>
+                        <p className="text-sm font-bold text-purple-800">{npkRecommendation.potassium}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="p-2 bg-blue-50 rounded border border-blue-100">
+                        <p className="text-xs text-blue-700 font-medium flex items-center">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Conseil NPK: {npkRecommendation.conseil}
+                        </p>
+                      </div>
+                      <div className="p-2 bg-green-50 rounded border border-green-100">
+                        <p className="text-xs text-green-700 font-medium">
+                          Action: {npkRecommendation.action}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-xs text-blue-700 flex items-center">
