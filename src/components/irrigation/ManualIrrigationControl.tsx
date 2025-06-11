@@ -19,7 +19,6 @@ export const ManualIrrigationControl = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // S'abonner aux changements d'état global
     const unsubscribe = irrigationSyncService.subscribe((state) => {
       setIsManualActive(state.isActive && state.type === 'manual');
       setStartTime(state.startTime);
@@ -29,12 +28,12 @@ export const ManualIrrigationControl = () => {
   }, []);
 
   const startIrrigation = async () => {
-    console.log('🚿 Démarrage irrigation MQTT');
+    console.log('🚿 Démarrage irrigation via Backend Flask');
     
     if (!isConnected) {
       toast({
-        title: "❌ Erreur de connexion",
-        description: "Broker MQTT non connecté",
+        title: "❌ Backend déconnecté",
+        description: "Vérifiez que le serveur Flask fonctionne",
         variant: "destructive"
       });
       return;
@@ -43,7 +42,6 @@ export const ManualIrrigationControl = () => {
     setIsPublishing(true);
 
     try {
-      // Vérifier si on peut démarrer
       const { canStart, reason } = irrigationSyncService.canStartIrrigation('manual');
       if (!canStart) {
         toast({
@@ -54,21 +52,19 @@ export const ManualIrrigationControl = () => {
         return;
       }
 
-      // Démarrer irrigation manuelle
-      if (irrigationSyncService.startIrrigation('manual', 'MQTT_Direct')) {
+      if (irrigationSyncService.startIrrigation('manual', 'Backend_Flask')) {
         const success = await publishIrrigationCommand(1);
 
         if (success) {
           toast({
             title: "🚿 Irrigation démarrée",
-            description: "Commande envoyée avec succès",
+            description: "Commande envoyée via Backend Flask",
           });
         } else {
-          // Annuler le démarrage en cas d'échec
-          irrigationSyncService.stopIrrigation('MQTT_Error');
+          irrigationSyncService.stopIrrigation('Backend_Error');
           toast({
             title: "❌ Échec irrigation",
-            description: "Impossible de démarrer l'irrigation",
+            description: "Impossible de démarrer via backend",
             variant: "destructive"
           });
         }
@@ -86,12 +82,12 @@ export const ManualIrrigationControl = () => {
   };
 
   const stopIrrigation = async () => {
-    console.log('⏹️ Arrêt irrigation MQTT');
+    console.log('⏹️ Arrêt irrigation via Backend Flask');
     
     if (!isConnected) {
       toast({
-        title: "❌ Erreur de connexion",
-        description: "Broker MQTT non connecté",
+        title: "❌ Backend déconnecté",
+        description: "Vérifiez que le serveur Flask fonctionne",
         variant: "destructive"
       });
       return;
@@ -104,9 +100,8 @@ export const ManualIrrigationControl = () => {
 
       if (success) {
         const duration = startTime ? (new Date().getTime() - startTime.getTime()) / 1000 / 60 : 0;
-        const volume = (duration * 20) / 1000; // 20L/min converti en m³
+        const volume = (duration * 20) / 1000;
         
-        // Envoyer les données au backend pour logging
         try {
           await fetch('/api/irrigation/log-manual', {
             method: 'POST',
@@ -122,7 +117,7 @@ export const ManualIrrigationControl = () => {
           console.warn('⚠️ Erreur logging backend:', error);
         }
         
-        irrigationSyncService.stopIrrigation('MQTT_Manual');
+        irrigationSyncService.stopIrrigation('Backend_Manual');
         
         toast({
           title: "⏹️ Irrigation arrêtée",
@@ -153,10 +148,10 @@ export const ManualIrrigationControl = () => {
         <CardTitle>Arrosage Manuel</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Statut de connexion simple */}
+        {/* Statut de connexion Backend */}
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
           <span className="text-sm font-medium">
-            Statut MQTT: {isConnected ? '🟢 Connecté' : '🔴 Déconnecté'}
+            Backend Flask: {isConnected ? '🟢 Connecté' : '🔴 Déconnecté'}
           </span>
           <div className={`px-3 py-1 rounded-full text-xs font-medium ${
             irrigationStatus ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
@@ -194,7 +189,7 @@ export const ManualIrrigationControl = () => {
               ⏱️ Irrigation active depuis: {startTime.toLocaleTimeString()}
             </p>
             <p className="text-xs text-blue-600">
-              Débit: 20 L/min
+              Débit: 20 L/min | Via Backend Flask
             </p>
           </div>
         )}
