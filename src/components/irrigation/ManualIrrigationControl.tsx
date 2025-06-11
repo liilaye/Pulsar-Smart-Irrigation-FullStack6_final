@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,53 +14,67 @@ export const ManualIrrigationControl = () => {
   const [manualDuration, setManualDuration] = useState({ hours: '0', minutes: '30' });
   const [isManualActive, setIsManualActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastCommand, setLastCommand] = useState<string | null>(null);
   const { isConnected, publishIrrigationCommand } = useMQTT();
 
-  // Vérifier l'état de l'irrigation périodiquement
+  // Vérification périodique de l'état d'irrigation
   useEffect(() => {
     const checkIrrigationStatus = async () => {
       try {
         const status = await backendService.getIrrigationStatus();
-        if (status && typeof status === 'object') {
-          setIsManualActive(status.isActive && status.type === 'manual');
+        if (status && typeof status === 'object' && 'isActive' in status) {
+          const newState = status.isActive && status.type === 'manual';
+          if (newState !== isManualActive) {
+            setIsManualActive(newState);
+          }
         }
       } catch (error) {
-        // Ignorer les erreurs de statut pour éviter les logs répétitifs
+        // Silencieux pour éviter les logs répétitifs
       }
     };
 
     checkIrrigationStatus();
-    const interval = setInterval(checkIrrigationStatus, 5000);
+    const interval = setInterval(checkIrrigationStatus, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isManualActive]);
 
   const handleManualIrrigation = async () => {
     if (isLoading) return;
     
     setIsLoading(true);
-    console.log(`Action irrigation manuelle: ${isManualActive ? 'ARRÊT' : 'DÉMARRAGE'}`);
+    const action = isManualActive ? 'ARRÊT' : 'DÉMARRAGE';
+    console.log(`🚿 Action irrigation manuelle: ${action}`);
 
     try {
       if (isManualActive) {
         // ARRÊTER l'irrigation
-        console.log('Envoi commande ARRÊT irrigation...');
+        console.log('📤 Envoi commande ARRÊT...');
+        setLastCommand('ARRÊT en cours...');
         
-        // Méthode 1: Via backend Flask
-        const backendResult = await backendService.stopIrrigation();
-        console.log('Backend STOP result:', backendResult);
+        // Méthode 1: Backend Flask
+        let backendSuccess = false;
+        try {
+          const backendResult = await backendService.stopIrrigation();
+          backendSuccess = backendResult.success;
+          console.log('🔧 Backend STOP:', backendSuccess ? 'OK' : 'ÉCHEC');
+        } catch (error) {
+          console.log('⚠️ Backend non disponible pour STOP');
+        }
         
-        // Méthode 2: Direct MQTT en parallèle pour assurer l'arrêt
-        const mqttResult = await publishIrrigationCommand(0);
-        console.log('MQTT STOP result:', mqttResult);
+        // Méthode 2: MQTT direct (toujours exécuté pour assurer l'arrêt)
+        const mqttSuccess = await publishIrrigationCommand(0);
+        console.log('📡 MQTT STOP:', mqttSuccess ? 'OK' : 'ÉCHEC');
         
-        if (backendResult.success || mqttResult) {
+        if (backendSuccess || mqttSuccess) {
           setIsManualActive(false);
+          setLastCommand('Irrigation arrêtée');
           toast.success("Irrigation arrêtée", {
-            description: "Commande STOP envoyée au broker MQTT"
+            description: "Commande STOP envoyée avec succès"
           });
         } else {
+          setLastCommand('Erreur lors de l\'arrêt');
           toast.error("Erreur lors de l'arrêt", {
-            description: backendResult.message || "Vérifiez la connexion MQTT"
+            description: "Impossible d'envoyer la commande STOP"
           });
         }
       } else {
@@ -74,36 +89,47 @@ export const ManualIrrigationControl = () => {
           return;
         }
 
-        console.log(`Démarrage irrigation: ${hours}h ${minutes}min`);
+        console.log(`📤 Démarrage irrigation: ${hours}h ${minutes}min`);
+        setLastCommand(`Démarrage ${hours}h ${minutes}min...`);
         
-        // Méthode 1: Via backend Flask  
-        const backendResult = await backendService.startManualIrrigation(hours, minutes);
-        console.log('Backend START result:', backendResult);
+        // Méthode 1: Backend Flask
+        let backendSuccess = false;
+        try {
+          const backendResult = await backendService.startManualIrrigation(hours, minutes);
+          backendSuccess = backendResult.success;
+          console.log('🔧 Backend START:', backendSuccess ? 'OK' : 'ÉCHEC');
+        } catch (error) {
+          console.log('⚠️ Backend non disponible pour START');
+        }
         
-        if (backendResult.success) {
+        if (backendSuccess) {
           setIsManualActive(true);
+          setLastCommand(`Irrigation active: ${hours}h ${minutes}min`);
           toast.success("Irrigation démarrée", {
-            description: `Durée: ${hours}h ${minutes}min - MQTT activé`
+            description: `Durée: ${hours}h ${minutes}min via backend Flask`
           });
         } else {
-          // Méthode 2: Fallback direct MQTT si backend échoue
-          console.log('Fallback: commande MQTT directe...');
-          const mqttResult = await publishIrrigationCommand(1);
+          // Méthode 2: MQTT direct en fallback
+          console.log('🔄 Fallback: commande MQTT directe...');
+          const mqttSuccess = await publishIrrigationCommand(1);
           
-          if (mqttResult) {
+          if (mqttSuccess) {
             setIsManualActive(true);
-            toast.success("Irrigation démarrée (MQTT direct)", {
-              description: `Durée: ${hours}h ${minutes}min`
+            setLastCommand(`Irrigation active (MQTT): ${hours}h ${minutes}min`);
+            toast.success("Irrigation démarrée", {
+              description: `Durée: ${hours}h ${minutes}min via MQTT direct`
             });
           } else {
+            setLastCommand('Erreur de démarrage');
             toast.error("Erreur de démarrage", {
-              description: backendResult.message || "Vérifiez la connexion MQTT"
+              description: "Impossible de démarrer l'irrigation"
             });
           }
         }
       }
     } catch (error) {
-      console.error('Erreur irrigation manuelle:', error);
+      console.error('❌ Erreur irrigation manuelle:', error);
+      setLastCommand('Erreur de communication');
       toast.error("Erreur de connexion", {
         description: "Impossible de communiquer avec le système"
       });
@@ -133,7 +159,7 @@ export const ManualIrrigationControl = () => {
               isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
             }`}></div>
             <span className="text-sm text-gray-600">
-              {isConnected ? 'MQTT Connecté' : 'MQTT Déconnecté'}
+              {isConnected ? 'Système Connecté' : 'Système Déconnecté'}
             </span>
           </div>
         </CardTitle>
@@ -216,11 +242,14 @@ export const ManualIrrigationControl = () => {
                 </span>
               </Button>
               
-              <div className="text-sm font-medium">
-                {isManualActive ? (
-                  <span className="text-red-600">Irrigation en cours</span>
-                ) : (
-                  <span className="text-gray-600">Irrigation arrêtée</span>
+              <div className="text-sm">
+                <div className={`font-medium ${isManualActive ? 'text-red-600' : 'text-gray-600'}`}>
+                  {isManualActive ? 'Irrigation en cours' : 'Irrigation arrêtée'}
+                </div>
+                {lastCommand && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {lastCommand}
+                  </div>
                 )}
               </div>
             </div>
@@ -237,10 +266,14 @@ export const ManualIrrigationControl = () => {
           {/* Statut de connexion détaillé */}
           <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
             <div className="flex items-center justify-between">
-              <span>Statut MQTT:</span>
+              <span>Backend Flask:</span>
               <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
-                {isConnected ? 'Connecté au broker PulsarInfinite' : 'Déconnecté'}
+                {isConnected ? 'Connecté (localhost:5002)' : 'Déconnecté'}
               </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Mode:</span>
+              <span className="text-blue-600">Local Development</span>
             </div>
           </div>
         </div>
