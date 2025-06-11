@@ -230,7 +230,7 @@ export const ManualIrrigationControl = () => {
               onClick={startManualIrrigation}
               disabled={manualStatus.isActive}
               size="sm"
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Play className="h-4 w-4" />
               <span>Démarrer</span>
@@ -239,9 +239,8 @@ export const ManualIrrigationControl = () => {
             <Button 
               onClick={stopManualIrrigation}
               disabled={!manualStatus.isActive}
-              variant="outline"
               size="sm"
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white"
             >
               <Square className="h-4 w-4" />
               <span>Arrêter</span>
@@ -354,3 +353,5 @@ export const ManualIrrigationControl = () => {
     </div>
   );
 };
+
+export default ManualIrrigationControl;

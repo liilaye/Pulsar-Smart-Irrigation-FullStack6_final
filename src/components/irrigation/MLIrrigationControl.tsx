@@ -208,7 +208,7 @@ export const MLIrrigationControl = () => {
             onClick={startMLIrrigation}
             disabled={isLoading || mlStatus.isActive}
             size="sm"
-            className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700"
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Play className="h-4 w-4" />
             <span>{isLoading ? 'Analyse IA...' : 'Irrigation ML Automatique'}</span>
@@ -217,9 +217,8 @@ export const MLIrrigationControl = () => {
           <Button 
             onClick={stopMLIrrigation}
             disabled={!mlStatus.isActive}
-            variant="outline"
             size="sm"
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white"
           >
             <Square className="h-4 w-4" />
             <span>Arrêter</span>
