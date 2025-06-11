@@ -11,10 +11,10 @@ import os
 def create_app():
     app = Flask(__name__)
     
-    # Configuration CORS étendue pour le développement
+    # Configuration CORS étendue pour le développement avec les nouveaux domaines
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:5173", "https://*.lovableproject.com", "http://localhost:3000"],
+            "origins": ["http://localhost:5173", "http://127.0.0.1:5173", "https://*.lovableproject.com", "http://localhost:3000"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True

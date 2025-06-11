@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wifi, WifiOff, Bot } from 'lucide-react';
 import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
+import { api } from '@/services/apiService';
 
 export const MLRecommendation = () => {
   const { isBackendConnected } = useBackendSync();
@@ -14,35 +16,25 @@ export const MLRecommendation = () => {
   const handleMLRequest = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5002/api/arroser", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          features: {
-            "Température_air_(°C)": 29,
-            "Précipitation_(mm)": 0,
-            "Humidité_air_(%)": 62,
-            "Vent_moyen_(km/h)": 4,
-            "Type_culture": 1,
-            "Périmètre_agricole_(m2)": 600,
-            "Température_sol_(°C)": 26,
-            "Humidité_sol_(%)": 40,
-            "EC_(dS/m)": 0.9,
-            "pH_sol": 6.5,
-            "Azote_(mg/kg)": 10,
-            "Phosphore_(mg/kg)": 15,
-            "Potassium_(mg/kg)": 20,
-            "Fertilité_(score)": 4,
-            "Type_sol": 2
-          }
-        })
+      // Utiliser le service API au lieu d'un appel direct
+      const data = await api.arroserAvecML({
+        "Température_air_(°C)": 29,
+        "Précipitation_(mm)": 0,
+        "Humidité_air_(%)": 62,
+        "Vent_moyen_(km/h)": 4,
+        "Type_culture": 1,
+        "Périmètre_agricole_(m2)": 600,
+        "Température_sol_(°C)": 26,
+        "Humidité_sol_(%)": 40,
+        "EC_(dS/m)": 0.9,
+        "pH_sol": 6.5,
+        "Azote_(mg/kg)": 10,
+        "Phosphore_(mg/kg)": 15,
+        "Potassium_(mg/kg)": 20,
+        "Fertilité_(score)": 4,
+        "Type_sol": 2
       });
 
-      if (!response.ok) throw new Error("Erreur réponse serveur");
-
-      const data = await response.json();
       console.log("✅ Réponse ML :", data);
       setPrediction({
         durationHours: Math.floor(data.duree_minutes / 60),

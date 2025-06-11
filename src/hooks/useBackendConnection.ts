@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/services/apiService';
 
 interface BackendStatus {
   isConnected: boolean;
@@ -21,26 +22,16 @@ export const useBackendConnection = () => {
     
     try {
       console.log('🔍 Vérification connexion backend Flask...');
-      const response = await fetch('http://localhost:5002/api/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(5000) // Timeout de 5 secondes
-      });
+      // Utiliser notre service API au lieu d'un appel direct
+      const data = await api.checkHealth();
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Backend Flask connecté:', data);
-        setStatus({
-          isConnected: true,
-          isLoading: false,
-          error: null,
-          lastChecked: new Date()
-        });
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      console.log('✅ Backend Flask connecté:', data);
+      setStatus({
+        isConnected: true,
+        isLoading: false,
+        error: null,
+        lastChecked: new Date()
+      });
     } catch (error) {
       console.error('❌ Erreur connexion backend Flask:', error);
       setStatus({
