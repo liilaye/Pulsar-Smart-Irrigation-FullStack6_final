@@ -144,7 +144,7 @@ export const WaterChart = () => {
               </LineChart>
             </ResponsiveContainer>
             <p className="text-sm text-gray-600 mt-2">
-              Quantité d'eau par heure - 🔴 Manuel (MQTT Direct) vs 🔵 ML (Prédictions XGBoost)
+              Quantité d'eau par heure - Rouge Manuel (MQTT Direct) vs Bleu ML (Prédictions XGBoost)
               {isRealTimeActive && (
                 <span className="text-blue-600 font-medium"> - Irrigation en cours</span>
               )}

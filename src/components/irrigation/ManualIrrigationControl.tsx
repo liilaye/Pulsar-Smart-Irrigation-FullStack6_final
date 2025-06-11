@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +69,6 @@ export const ManualIrrigationControl = () => {
   const getMLRecommendation = async () => {
     setIsLoadingRecommendation(true);
     try {
-      // Features par défaut pour recommandation ML
       const featuresArray = [
         29, 0, 62, 4, 1, 600, 26, 40, 0.9, 6.5, 10, 15, 20, 4, 2
       ];
@@ -83,14 +81,14 @@ export const ManualIrrigationControl = () => {
         });
         
         toast({
-          title: "💡 Recommandation ML reçue",
+          title: "Recommandation ML reçue",
           description: `${data.duree_minutes.toFixed(1)} min - ${data.volume_eau_m3.toFixed(3)} m³`
         });
       }
     } catch (error) {
-      console.error("❌ Erreur recommandation ML :", error);
+      console.error("Erreur recommandation ML :", error);
       toast({
-        title: "❌ Erreur recommandation",
+        title: "Erreur recommandation",
         description: "Impossible d'obtenir la recommandation ML",
         variant: "destructive"
       });
@@ -100,12 +98,11 @@ export const ManualIrrigationControl = () => {
   };
 
   const startManualIrrigation = async () => {
-    // Vérifier si on peut démarrer
     const { canStart, reason } = irrigationSyncService.canStartIrrigation('manual');
     if (!canStart) {
       setConflictMessage(reason || 'Irrigation déjà active');
       toast({
-        title: "⚠️ Conflit d'irrigation",
+        title: "Conflit d'irrigation",
         description: reason,
         variant: "destructive"
       });
@@ -114,13 +111,11 @@ export const ManualIrrigationControl = () => {
 
     try {
       if (irrigationSyncService.startIrrigation('manual', 'Manual_User', manualStatus.duration)) {
-        // Démarrer une session de données
         const sessionId = irrigationDataService.startIrrigationSession('manual', 'Manual_User');
         setCurrentSessionId(sessionId);
         
         setManualStatus(prev => ({ ...prev, isActive: true }));
         
-        // Programmer l'arrêt automatique
         setTimeout(() => {
           if (sessionId) {
             const volumeCalculated = (manualStatus.duration * manualStatus.volume) / 1000;
@@ -132,14 +127,14 @@ export const ManualIrrigationControl = () => {
         }, manualStatus.duration * 60 * 1000);
         
         toast({
-          title: "🚿 Irrigation manuelle démarrée",
+          title: "Irrigation manuelle démarrée",
           description: `${manualStatus.duration} min - ${(manualStatus.duration * manualStatus.volume / 1000).toFixed(3)} m³`,
         });
       }
     } catch (error) {
-      console.error('❌ Erreur démarrage manuel:', error);
+      console.error('Erreur démarrage manuel:', error);
       toast({
-        title: "❌ Erreur démarrage",
+        title: "Erreur démarrage",
         description: "Impossible de démarrer l'irrigation manuelle",
         variant: "destructive"
       });
@@ -157,7 +152,7 @@ export const ManualIrrigationControl = () => {
       setManualStatus(prev => ({ ...prev, isActive: false }));
       
       toast({
-        title: "⏹️ Irrigation manuelle arrêtée",
+        title: "Irrigation manuelle arrêtée",
         description: `Durée: ${(activeDuration / 60).toFixed(1)} min`,
       });
     }
@@ -185,7 +180,7 @@ export const ManualIrrigationControl = () => {
           {conflictMessage && (
             <div className="p-3 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm text-red-700">
-                ⚠️ {conflictMessage}
+                {conflictMessage}
               </p>
             </div>
           )}
@@ -278,7 +273,6 @@ export const ManualIrrigationControl = () => {
         </CardContent>
       </Card>
 
-      {/* Section Recommandation IA - Design élégant blanc et bleu */}
       <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center space-x-2 text-blue-800">
@@ -346,14 +340,14 @@ export const ManualIrrigationControl = () => {
                   <strong>Conseil IA :</strong> Recommandation basée sur 15 paramètres agro-climatiques
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
-                  💡 Vous gardez le contrôle total - Appliquez selon votre jugement terrain
+                  Vous gardez le contrôle total - Appliquez selon votre jugement terrain
                 </p>
               </div>
             </div>
           )}
 
           <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded border">
-            🎯 Intelligence artificielle optionnelle - Vos paramètres manuels restent prioritaires
+            Intelligence artificielle optionnelle - Vos paramètres manuels restent prioritaires
           </div>
         </CardContent>
       </Card>

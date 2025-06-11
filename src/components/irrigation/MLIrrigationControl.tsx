@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +68,7 @@ export const MLIrrigationControl = () => {
     if (!canStart) {
       setConflictMessage(reason || 'Irrigation déjà active');
       toast({
-        title: "⚠️ Conflit d'irrigation",
+        title: "Conflit d'irrigation",
         description: reason,
         variant: "destructive"
       });
@@ -80,29 +79,15 @@ export const MLIrrigationControl = () => {
     try {
       // ✅ Envoyer un TABLEAU ordonné de 15 valeurs comme attendu par XGBoost
       const featuresArray = [
-        29,    // Température_air_(°C)
-        0,     // Précipitation_(mm)
-        62,    // Humidité_air_(%)
-        4,     // Vent_moyen_(km/h)
-        1,     // Type_culture
-        600,   // Périmètre_agricole_(m2)
-        26,    // Température_sol_(°C)
-        40,    // Humidité_sol_(%)
-        0.9,   // EC_(dS/m)
-        6.5,   // pH_sol
-        10,    // Azote_(mg/kg)
-        15,    // Phosphore_(mg/kg)
-        20,    // Potassium_(mg/kg)
-        4,     // Fertilité_(score)
-        2      // Type_sol
+        29, 0, 62, 4, 1, 600, 26, 40, 0.9, 6.5, 10, 15, 20, 4, 2
       ];
 
-      console.log("🤖 Envoi des features ML (tableau ordonné de 15 valeurs):", featuresArray);
+      console.log("Envoi des features ML (tableau ordonné de 15 valeurs):", featuresArray);
 
       // Utiliser le service API avec le nouveau format incluant MQTT automatique
       const data = await api.arroserAvecML(featuresArray);
 
-      console.log("✅ Réponse ML + MQTT automatique :", data);
+      console.log("Réponse ML + MQTT automatique :", data);
       
       // Mettre à jour les données du graphique immédiatement
       irrigationDataService.addMLPrediction({
@@ -136,7 +121,7 @@ export const MLIrrigationControl = () => {
           setMLStatus(prev => ({ ...prev, isActive: false }));
           
           toast({
-            title: "✅ Irrigation ML terminée automatiquement",
+            title: "Irrigation ML terminée automatiquement",
             description: `Arrosage complété en ${data.duree_minutes.toFixed(1)} min`
           });
         }, data.duree_minutes * 60 * 1000);
@@ -144,21 +129,21 @@ export const MLIrrigationControl = () => {
         // 🚀 Notification de démarrage
         if (data.mqtt_started && data.auto_irrigation) {
           toast({
-            title: "🚀 Irrigation ML AUTO démarrée !",
-            description: `${data.duree_minutes.toFixed(1)} min - ${data.volume_eau_m3.toFixed(3)} m³ - MQTT ✅`
+            title: "Irrigation ML AUTO démarrée",
+            description: `${data.duree_minutes.toFixed(1)} min - ${data.volume_eau_m3.toFixed(3)} m³ - MQTT connecté`
           });
         } else {
           toast({
-            title: "✅ Recommandation IA reçue",
+            title: "Recommandation IA reçue",
             description: `${data.duree_minutes.toFixed(1)} min, ${data.volume_eau_m3.toFixed(3)} m³ ${data.mqtt_started ? '' : '(MQTT échec)'}`
           });
         }
       }
 
     } catch (error) {
-      console.error("❌ Erreur ML automatique :", error);
+      console.error("Erreur ML automatique :", error);
       toast({
-        title: "❌ Erreur ML",
+        title: "Erreur ML",
         description: "L'irrigation ML automatique a échoué",
         variant: "destructive"
       });
@@ -178,7 +163,7 @@ export const MLIrrigationControl = () => {
       setMLStatus(prev => ({ ...prev, isActive: false }));
       
       toast({
-        title: "⏹️ Irrigation ML arrêtée manuellement",
+        title: "Irrigation ML arrêtée manuellement",
         description: `Durée: ${(activeDuration / 60).toFixed(1)} min`,
       });
     }
@@ -213,7 +198,7 @@ export const MLIrrigationControl = () => {
         {conflictMessage && (
           <div className="p-3 bg-red-50 rounded-lg border border-red-200">
             <p className="text-sm text-red-700">
-              ⚠️ {conflictMessage}
+              {conflictMessage}
             </p>
           </div>
         )}
@@ -307,7 +292,7 @@ export const MLIrrigationControl = () => {
             </div>
 
             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-              🤖 Irrigation 100% automatisée : Prédiction IA → Déclenchement MQTT → Arrêt automatique | Session: {currentSessionId?.slice(-8) || 'N/A'}
+              Irrigation 100% automatisée : Prédiction IA → Déclenchement MQTT → Arrêt automatique | Session: {currentSessionId?.slice(-8) || 'N/A'}
             </div>
           </div>
         )}
