@@ -6,6 +6,7 @@ import { Wifi, WifiOff, Bot } from 'lucide-react';
 import { useBackendSync } from '@/hooks/useBackendSync';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/apiService';
+import { irrigationDataService } from '@/services/irrigationDataService';
 
 export const MLRecommendation = () => {
   const { isBackendConnected } = useBackendSync();
@@ -41,6 +42,13 @@ export const MLRecommendation = () => {
       const data = await api.arroserAvecML(featuresArray);
 
       console.log("✅ Réponse ML :", data);
+      
+      // Mettre à jour les données du graphique immédiatement
+      irrigationDataService.addMLPrediction({
+        duree_minutes: data.duree_minutes,
+        volume_eau_m3: data.volume_eau_m3
+      });
+      
       setPrediction({
         durationHours: Math.floor(data.duree_minutes / 60),
         durationMinutes: data.duree_minutes % 60,
@@ -49,7 +57,7 @@ export const MLRecommendation = () => {
 
       toast({
         title: "✅ Recommandation IA reçue",
-        description: `Arrosage ${data.duree_minutes} min, volume ${data.volume_eau_m3} m³`
+        description: `Arrosage ${data.duree_minutes.toFixed(1)} min, volume ${data.volume_eau_m3.toFixed(3)} m³`
       });
 
     } catch (error) {
@@ -88,7 +96,7 @@ export const MLRecommendation = () => {
               ⏱️ Durée recommandée : <strong>{prediction.durationHours}h {prediction.durationMinutes}min</strong>
             </p>
             <p className="text-sm text-indigo-700">
-              💧 Volume estimé : <strong>{prediction.volumeEauM3} m³</strong>
+              💧 Volume estimé : <strong>{prediction.volumeEauM3.toFixed(3)} m³</strong>
             </p>
           </div>
         )}
@@ -105,7 +113,7 @@ export const MLRecommendation = () => {
         </div>
 
         <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-          📊 Format: Tableau ordonné de 15 paramètres agro-climatiques
+          📊 Format: Tableau ordonné de 15 paramètres agro-climatiques | Graphiques mis à jour automatiquement
         </div>
       </CardContent>
     </Card>

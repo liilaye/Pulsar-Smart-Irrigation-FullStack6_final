@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { useMQTT } from '@/hooks/useMQTT';
 import { useToast } from '@/hooks/use-toast';
 import { irrigationSyncService } from '@/services/irrigationSyncService';
+import { irrigationDataService } from '@/services/irrigationDataService';
 import { Power, PowerOff } from 'lucide-react';
 
 export const ManualIrrigationControl = () => {
   const [isManualActive, setIsManualActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { 
     isConnected, 
     irrigationStatus, 
@@ -28,7 +30,7 @@ export const ManualIrrigationControl = () => {
   }, []);
 
   const startIrrigation = async () => {
-    console.log('🚿 Démarrage irrigation via Backend Flask');
+    console.log('🚿 Démarrage irrigation manuelle via Backend Flask');
     
     if (!isConnected) {
       toast({
@@ -53,6 +55,10 @@ export const ManualIrrigationControl = () => {
       }
 
       if (irrigationSyncService.startIrrigation('manual', 'Backend_Flask')) {
+        // Démarrer une session de données
+        const sessionId = irrigationDataService.startIrrigationSession('manual', 'Backend_Flask');
+        setCurrentSessionId(sessionId);
+        
         const success = await publishIrrigationCommand(1);
 
         if (success) {
@@ -61,6 +67,11 @@ export const ManualIrrigationControl = () => {
             description: "Commande envoyée via Backend Flask",
           });
         } else {
+          // Annuler la session si échec MQTT
+          if (sessionId) {
+            irrigationDataService.endIrrigationSession(sessionId, 0);
+            setCurrentSessionId(null);
+          }
           irrigationSyncService.stopIrrigation('Backend_Error');
           toast({
             title: "❌ Échec irrigation",
@@ -71,6 +82,10 @@ export const ManualIrrigationControl = () => {
       }
     } catch (error) {
       console.error('❌ Erreur démarrage irrigation:', error);
+      if (currentSessionId) {
+        irrigationDataService.endIrrigationSession(currentSessionId, 0);
+        setCurrentSessionId(null);
+      }
       toast({
         title: "❌ Erreur système",
         description: "Erreur lors du démarrage de l'irrigation",
@@ -100,15 +115,21 @@ export const ManualIrrigationControl = () => {
 
       if (success) {
         const duration = startTime ? (new Date().getTime() - startTime.getTime()) / 1000 / 60 : 0;
-        const volume = (duration * 20) / 1000;
         
+        // Terminer la session de données
+        if (currentSessionId) {
+          irrigationDataService.endIrrigationSession(currentSessionId, duration);
+          setCurrentSessionId(null);
+        }
+        
+        // Log backend pour backup
         try {
           await fetch('/api/irrigation/log-manual', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               duration_minutes: duration,
-              volume_m3: volume,
+              volume_m3: (duration * 20) / 1000,
               start_time: startTime?.toISOString(),
               end_time: new Date().toISOString()
             })
@@ -121,7 +142,7 @@ export const ManualIrrigationControl = () => {
         
         toast({
           title: "⏹️ Irrigation arrêtée",
-          description: `Durée: ${duration.toFixed(1)} min - Volume: ${volume.toFixed(3)} m³`,
+          description: `Durée: ${duration.toFixed(1)} min - Volume: ${((duration * 20) / 1000).toFixed(3)} m³`,
         });
       } else {
         toast({
@@ -189,7 +210,7 @@ export const ManualIrrigationControl = () => {
               ⏱️ Irrigation active depuis: {startTime.toLocaleTimeString()}
             </p>
             <p className="text-xs text-blue-600">
-              Débit: 20 L/min | Via Backend Flask
+              Débit: 20 L/min | Via Backend Flask | Session: {currentSessionId?.slice(-8)}
             </p>
           </div>
         )}

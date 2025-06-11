@@ -1,176 +1,228 @@
-
-interface IrrigationData {
-  timestamp: string;
+type IrrigationRecord = {
+  timestamp: Date;
   volume_m3: number;
   duree_minutes: number;
-  source: 'ML' | 'MANUAL' | 'MANUAL_DIRECT';
-  status: string;
-  type?: 'manual' | 'ml';
-}
+  source: 'manual' | 'ml' | 'schedule';
+  type: 'manual' | 'ml';
+};
 
-interface DailyIrrigationData {
+export type DailyIrrigationData = {
   time: string;
   manualQuantity: number;
   mlQuantity: number;
-  accumulated: number;
-}
+};
 
-interface WeeklyIrrigationData {
+export type WeeklyIrrigationData = {
   time: string;
   manualQuantity: number;
   mlQuantity: number;
-}
+};
 
-interface MonthlyIrrigationData {
+export type MonthlyIrrigationData = {
   time: string;
   manualQuantity: number;
   mlQuantity: number;
-}
+};
 
 class IrrigationDataService {
-  private irrigationHistory: IrrigationData[] = [];
-  private listeners: ((data: any) => void)[] = [];
+  private irrigationHistory: IrrigationRecord[] = [];
+  private subscribers: ((data: { daily: DailyIrrigationData[], weekly: WeeklyIrrigationData[], monthly: MonthlyIrrigationData[] }) => void)[] = [];
+  private activeSessions: Map<string, { startTime: Date, type: 'manual' | 'ml', source: string }> = new Map();
 
-  addIrrigationData(data: IrrigationData) {
-    // Déterminer le type basé sur la source
-    const enhancedData = {
-      ...data,
-      type: data.source.includes('MANUAL') ? 'manual' as const : 'ml' as const
-    };
-    
-    this.irrigationHistory.push(enhancedData);
-    console.log('📊 Nouvelle donnée irrigation ajoutée:', enhancedData);
-    this.notifyListeners();
+  constructor() {
+    this.initializeWithSampleData();
   }
 
-  subscribe(callback: (data: any) => void) {
-    this.listeners.push(callback);
-    return () => {
-      this.listeners = this.listeners.filter(listener => listener !== callback);
-    };
+  // Démarrer une session d'irrigation
+  startIrrigationSession(type: 'manual' | 'ml', source: string = 'unknown'): string {
+    const sessionId = `${type}_${Date.now()}`;
+    this.activeSessions.set(sessionId, {
+      startTime: new Date(),
+      type,
+      source
+    });
+    console.log(`📊 Session irrigation démarrée: ${sessionId} (${type})`);
+    return sessionId;
   }
 
-  private notifyListeners() {
-    const chartData = this.generateChartData();
-    this.listeners.forEach(listener => listener(chartData));
-  }
-
-  generateDailyData(): DailyIrrigationData[] {
-    const today = new Date();
-    const dailyData: DailyIrrigationData[] = [];
-    
-    // Initialiser avec des données vides pour chaque heure
-    for (let i = 0; i < 24; i++) {
-      dailyData.push({
-        time: `${i.toString().padStart(2, '0')}:00`,
-        manualQuantity: 0,
-        mlQuantity: 0,
-        accumulated: 0
-      });
+  // Terminer une session d'irrigation et ajouter aux données
+  endIrrigationSession(sessionId: string, actualDurationMinutes?: number): void {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      console.warn(`⚠️ Session non trouvée: ${sessionId}`);
+      return;
     }
 
-    // Ajouter les données réelles d'irrigation du jour
-    const todayIrrigations = this.irrigationHistory.filter(irrigation => {
-      const irrigationDate = new Date(irrigation.timestamp);
-      return irrigationDate.toDateString() === today.toDateString();
+    const endTime = new Date();
+    const durationMinutes = actualDurationMinutes || (endTime.getTime() - session.startTime.getTime()) / (1000 * 60);
+    const volumeM3 = (durationMinutes * 20) / 1000; // 20 L/min converti en m³
+
+    this.addIrrigation({
+      timestamp: session.startTime,
+      volume_m3: volumeM3,
+      duree_minutes: durationMinutes,
+      source: session.source as any,
+      type: session.type
     });
 
-    todayIrrigations.forEach(irrigation => {
-      const hour = new Date(irrigation.timestamp).getHours();
-      const index = dailyData.findIndex(item => item.time === `${hour.toString().padStart(2, '0')}:00`);
-      if (index !== -1) {
-        if (irrigation.type === 'manual') {
-          dailyData[index].manualQuantity += irrigation.volume_m3;
-        } else {
-          dailyData[index].mlQuantity += irrigation.volume_m3;
-        }
-      }
-    });
-
-    // Calculer les valeurs cumulatives
-    let accumulated = 0;
-    dailyData.forEach(item => {
-      accumulated += item.manualQuantity + item.mlQuantity;
-      item.accumulated = accumulated;
-    });
-
-    return dailyData;
+    this.activeSessions.delete(sessionId);
+    console.log(`✅ Session irrigation terminée: ${sessionId} - ${durationMinutes.toFixed(1)}min, ${volumeM3.toFixed(3)}m³`);
   }
 
-  generateWeeklyData(): WeeklyIrrigationData[] {
-    const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    const weeklyData: WeeklyIrrigationData[] = weekDays.map(day => ({ 
-      time: day, 
-      manualQuantity: 0, 
-      mlQuantity: 0 
-    }));
-    
-    const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay() + 1); // Lundi de cette semaine
+  // Ajouter directement une irrigation (pour les prédictions ML)
+  addIrrigation(record: IrrigationRecord): void {
+    this.irrigationHistory.push(record);
+    console.log(`📈 Nouvelle irrigation ajoutée:`, record);
+    this.notifySubscribers();
+  }
 
-    this.irrigationHistory.forEach(irrigation => {
-      const irrigationDate = new Date(irrigation.timestamp);
-      const daysDiff = Math.floor((irrigationDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
+  // Ajouter une irrigation ML avec prédiction
+  addMLPrediction(predictionData: { duree_minutes: number, volume_eau_m3: number }): void {
+    this.addIrrigation({
+      timestamp: new Date(),
+      volume_m3: predictionData.volume_eau_m3,
+      duree_minutes: predictionData.duree_minutes,
+      source: 'ml',
+      type: 'ml'
+    });
+  }
+
+  // Obtenir les sessions actives
+  getActiveSessions(): string[] {
+    return Array.from(this.activeSessions.keys());
+  }
+
+  private initializeWithSampleData(): void {
+    const now = new Date();
+    for (let i = 0; i < 24; i++) {
+      const time = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
       
-      if (daysDiff >= 0 && daysDiff < 7) {
-        if (irrigation.type === 'manual') {
-          weeklyData[daysDiff].manualQuantity += irrigation.volume_m3;
-        } else {
-          weeklyData[daysDiff].mlQuantity += irrigation.volume_m3;
-        }
+      if (Math.random() > 0.7) {
+        this.irrigationHistory.push({
+          timestamp: time,
+          volume_m3: Math.random() * 0.8 + 0.2,
+          duree_minutes: Math.random() * 20 + 10,
+          source: Math.random() > 0.5 ? 'manual' : 'ml',
+          type: Math.random() > 0.5 ? 'manual' : 'ml'
+        });
       }
-    });
-
-    return weeklyData;
-  }
-
-  generateMonthlyData(): MonthlyIrrigationData[] {
-    const monthlyData: MonthlyIrrigationData[] = [
-      { time: 'S1', manualQuantity: 0, mlQuantity: 0 },
-      { time: 'S2', manualQuantity: 0, mlQuantity: 0 },
-      { time: 'S3', manualQuantity: 0, mlQuantity: 0 },
-      { time: 'S4', manualQuantity: 0, mlQuantity: 0 }
-    ];
-
-    const today = new Date();
-
-    this.irrigationHistory.forEach(irrigation => {
-      const irrigationDate = new Date(irrigation.timestamp);
-      if (irrigationDate.getMonth() === today.getMonth() && irrigationDate.getFullYear() === today.getFullYear()) {
-        const weekIndex = Math.floor((irrigationDate.getDate() - 1) / 7);
-        if (weekIndex < 4) {
-          if (irrigation.type === 'manual') {
-            monthlyData[weekIndex].manualQuantity += irrigation.volume_m3;
-          } else {
-            monthlyData[weekIndex].mlQuantity += irrigation.volume_m3;
-          }
-        }
-      }
-    });
-
-    return monthlyData;
+    }
   }
 
   generateChartData() {
-    return {
-      daily: this.generateDailyData(),
-      weekly: this.generateWeeklyData(),
-      monthly: this.generateMonthlyData()
+    const daily = this.generateDailyData();
+    const weekly = this.generateWeeklyData();
+    const monthly = this.generateMonthlyData();
+    
+    return { daily, weekly, monthly };
+  }
+
+  private generateDailyData(): DailyIrrigationData[] {
+    const now = new Date();
+    const dailyData: DailyIrrigationData[] = [];
+    
+    for (let i = 23; i >= 0; i--) {
+      const hour = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hourStart = new Date(hour.getFullYear(), hour.getMonth(), hour.getDate(), hour.getHours());
+      const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
+      
+      const hourlyRecords = this.irrigationHistory.filter(record => 
+        record.timestamp >= hourStart && record.timestamp < hourEnd
+      );
+      
+      const manualQuantity = hourlyRecords
+        .filter(record => record.type === 'manual')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      const mlQuantity = hourlyRecords
+        .filter(record => record.type === 'ml')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      dailyData.push({
+        time: hour.getHours().toString().padStart(2, '0') + ':00',
+        manualQuantity: Number(manualQuantity.toFixed(3)),
+        mlQuantity: Number(mlQuantity.toFixed(3))
+      });
+    }
+    
+    return dailyData;
+  }
+
+  private generateWeeklyData(): WeeklyIrrigationData[] {
+    const weeklyData: WeeklyIrrigationData[] = [];
+    const now = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      
+      const dailyRecords = this.irrigationHistory.filter(record => 
+        record.timestamp >= dayStart && record.timestamp < dayEnd
+      );
+      
+      const manualQuantity = dailyRecords
+        .filter(record => record.type === 'manual')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      const mlQuantity = dailyRecords
+        .filter(record => record.type === 'ml')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      weeklyData.push({
+        time: day.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        manualQuantity: Number(manualQuantity.toFixed(3)),
+        mlQuantity: Number(mlQuantity.toFixed(3))
+      });
+    }
+    
+    return weeklyData;
+  }
+
+  private generateMonthlyData(): MonthlyIrrigationData[] {
+    const monthlyData: MonthlyIrrigationData[] = [];
+    const now = new Date();
+    
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      const weeklyRecords = this.irrigationHistory.filter(record => 
+        record.timestamp >= weekStart && record.timestamp < weekEnd
+      );
+      
+      const manualQuantity = weeklyRecords
+        .filter(record => record.type === 'manual')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      const mlQuantity = weeklyRecords
+        .filter(record => record.type === 'ml')
+        .reduce((sum, record) => sum + record.volume_m3, 0);
+      
+      monthlyData.push({
+        time: `S${4-i}`,
+        manualQuantity: Number(manualQuantity.toFixed(3)),
+        mlQuantity: Number(mlQuantity.toFixed(3))
+      });
+    }
+    
+    return monthlyData;
+  }
+
+  subscribe(callback: (data: { daily: DailyIrrigationData[], weekly: WeeklyIrrigationData[], monthly: MonthlyIrrigationData[] }) => void): () => void {
+    this.subscribers.push(callback);
+    return () => {
+      const index = this.subscribers.indexOf(callback);
+      if (index > -1) {
+        this.subscribers.splice(index, 1);
+      }
     };
   }
 
-  getCurrentIrrigationStatus() {
-    const recent = this.irrigationHistory.slice(-1)[0];
-    return recent ? {
-      isActive: true,
-      lastVolume: recent.volume_m3,
-      lastDuration: recent.duree_minutes,
-      source: recent.source,
-      type: recent.type
-    } : { isActive: false };
+  private notifySubscribers(): void {
+    const data = this.generateChartData();
+    this.subscribers.forEach(callback => callback(data));
   }
 }
 
 export const irrigationDataService = new IrrigationDataService();
-export type { IrrigationData, DailyIrrigationData, WeeklyIrrigationData, MonthlyIrrigationData };

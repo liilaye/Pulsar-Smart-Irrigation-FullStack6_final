@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, MapPin, Wheat, Play, Square } from 'lucide-react';
 import { backendService } from '@/services/backendService';
 import { irrigationSyncService } from '@/services/irrigationSyncService';
+import { irrigationDataService } from '@/services/irrigationDataService';
 import { useToast } from '@/hooks/use-toast';
 
 interface MLIrrigationStatus {
@@ -25,6 +25,7 @@ export const MLIrrigationControl = () => {
   const [isConnected, setIsConnected] = useState(true);
   const [conflictMessage, setConflictMessage] = useState<string>('');
   const [activeDuration, setActiveDuration] = useState<number>(0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -104,6 +105,10 @@ export const MLIrrigationControl = () => {
       
       if (recommendation && recommendation.status === 'ok') {
         if (irrigationSyncService.startIrrigation('ml', 'ML_Backend', recommendation.duree_minutes)) {
+          // Démarrer une session de données pour ML
+          const sessionId = irrigationDataService.startIrrigationSession('ml', 'ML_Backend');
+          setCurrentSessionId(sessionId);
+          
           setMLStatus(prev => ({
             ...prev,
             isActive: true,
@@ -114,6 +119,15 @@ export const MLIrrigationControl = () => {
               perimetre_m2: 25000
             }
           }));
+          
+          // Programmer l'arrêt automatique et la mise à jour des données
+          setTimeout(() => {
+            if (sessionId) {
+              irrigationDataService.endIrrigationSession(sessionId, recommendation.duree_minutes);
+              setCurrentSessionId(null);
+            }
+            irrigationSyncService.stopIrrigation('ML_Auto_Complete');
+          }, recommendation.duree_minutes * 60 * 1000);
           
           toast({
             title: "🤖 Irrigation ML démarrée",
@@ -133,9 +147,15 @@ export const MLIrrigationControl = () => {
 
   const stopMLIrrigation = () => {
     if (irrigationSyncService.stopIrrigation('ML_Manual')) {
+      // Terminer la session de données
+      if (currentSessionId) {
+        irrigationDataService.endIrrigationSession(currentSessionId, activeDuration / 60);
+        setCurrentSessionId(null);
+      }
+      
       toast({
         title: "⏹️ Irrigation ML arrêtée",
-        description: `Durée: ${activeDuration.toFixed(1)} min`,
+        description: `Durée: ${(activeDuration / 60).toFixed(1)} min`,
       });
     }
   };
@@ -211,7 +231,7 @@ export const MLIrrigationControl = () => {
                 <span>Recommandation ML</span>
                 {mlStatus.isActive && (
                   <span className="text-sm font-normal">
-                    - {activeDuration.toFixed(1)} min
+                    - {(activeDuration / 60).toFixed(1)} min
                   </span>
                 )}
               </h4>
@@ -248,16 +268,16 @@ export const MLIrrigationControl = () => {
               {mlStatus.isActive && (
                 <div className="mt-3 pt-3 border-t border-purple-200">
                   <div className="flex items-center justify-between text-xs text-purple-600">
-                    <span>Temps écoulé: {activeDuration.toFixed(1)} min</span>
+                    <span>Temps écoulé: {(activeDuration / 60).toFixed(1)} min</span>
                     <span>
-                      {Math.round((activeDuration / mlStatus.currentRecommendation.duree_minutes) * 100)}% complété
+                      {Math.round((activeDuration / 60 / mlStatus.currentRecommendation.duree_minutes) * 100)}% complété
                     </span>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2 mt-1">
                     <div 
                       className="bg-purple-600 h-2 rounded-full transition-all duration-1000"
                       style={{ 
-                        width: `${Math.min((activeDuration / mlStatus.currentRecommendation.duree_minutes) * 100, 100)}%` 
+                        width: `${Math.min((activeDuration / 60 / mlStatus.currentRecommendation.duree_minutes) * 100, 100)}%` 
                       }}
                     ></div>
                   </div>
@@ -266,7 +286,7 @@ export const MLIrrigationControl = () => {
             </div>
 
             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-              🤖 Analyse basée sur 15 paramètres agro-climatiques avec marge d'erreur ±2%
+              🤖 Analyse basée sur 15 paramètres agro-climatiques | Session: {currentSessionId?.slice(-8) || 'N/A'}
             </div>
           </div>
         )}
