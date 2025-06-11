@@ -92,6 +92,32 @@ class BackendService {
     }
   }
 
+  async getMLRecommendation(features: number[]): Promise<MLPrediction> {
+    try {
+      console.log('🤖 Récupération recommandation ML via Flask backend...');
+      console.log('📊 Features (15 valeurs):', features);
+      
+      const response = await this.makeRequest('/arroser', {
+        method: 'POST',
+        body: JSON.stringify({ features })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Recommandation ML Flask reçue:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur recommandation ML Flask:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur recommandation ML Backend Flask: ${errorMessage}`);
+    }
+  }
+
   async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
     try {
       console.log('🚿 Démarrage irrigation manuelle via Flask...');
