@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Brain, Zap, Activity } from 'lucide-react';
 import { backendService } from '@/services/backendService';
 import { useMQTT } from '@/hooks/useMQTT';
 import { toast } from "sonner";
@@ -32,8 +32,11 @@ export const MLIrrigationControl = () => {
   useEffect(() => {
     const loadLastMLRecommendation = async () => {
       try {
-        const recommendation = await backendService.getLastMLRecommendation();
-        setLastMLRecommendation(recommendation);
+        const features = backendService.getDefaultSoilClimateFeatures();
+        const recommendation = await backendService.getMLRecommendation(features);
+        if (recommendation) {
+          setLastMLRecommendation(recommendation);
+        }
       } catch (error) {
         console.error("Erreur lors du chargement de la dernière recommandation ML:", error);
       }
@@ -64,9 +67,9 @@ export const MLIrrigationControl = () => {
   useEffect(() => {
     const checkBackendConnection = async () => {
       try {
-        // Simuler une requête rapide au backend pour vérifier la connexion
-        await backendService.healthCheck();
-        setIsBackendConnected(true);
+        // Utiliser testConnection au lieu de healthCheck
+        const isConnected = await backendService.testConnection();
+        setIsBackendConnected(isConnected);
       } catch (error) {
         console.error("Backend non connecté:", error);
         setIsBackendConnected(false);
@@ -90,11 +93,14 @@ export const MLIrrigationControl = () => {
     setIsLoading(true);
 
     try {
-      const recommendation = await backendService.getMLRecommendation();
-      setLastMLRecommendation(recommendation);
-      toast.success("Recommandation ML reçue!", {
-        description: `Durée: ${Math.floor(recommendation.duree_minutes)} minutes`
-      });
+      const features = backendService.getDefaultSoilClimateFeatures();
+      const recommendation = await backendService.getMLRecommendation(features);
+      if (recommendation) {
+        setLastMLRecommendation(recommendation);
+        toast.success("Recommandation ML reçue!", {
+          description: `Durée: ${Math.floor(recommendation.duree_minutes)} minutes`
+        });
+      }
     } catch (error) {
       console.error("Erreur lors de la récupération de la recommandation ML:", error);
       toast.error("Erreur ML", {
@@ -145,17 +151,15 @@ export const MLIrrigationControl = () => {
           return;
         }
 
-        // Préparer les données pour l'appel au backend
-        const dureeMinutes = Math.floor(lastMLRecommendation.duree_minutes);
-
-        // Méthode 1: Via backend Flask
-        const backendResult = await backendService.startMLIrrigation(dureeMinutes);
+        // Utiliser arroserAvecML au lieu de startMLIrrigation
+        const features = backendService.getDefaultSoilClimateFeatures();
+        const backendResult = await backendService.arroserAvecML(features);
         console.log('Backend START result:', backendResult);
         
-        if (backendResult.success) {
+        if (backendResult.status === 'ok') {
           setIsMLActive(true);
           toast.success("Irrigation ML démarrée", {
-            description: `Durée: ${dureeMinutes} minutes - MQTT activé`
+            description: `Durée: ${Math.floor(backendResult.duree_minutes)} minutes - MQTT activé`
           });
         } else {
           // Méthode 2: Fallback direct MQTT si backend échoue
@@ -165,11 +169,11 @@ export const MLIrrigationControl = () => {
           if (mqttResult) {
             setIsMLActive(true);
             toast.success("Irrigation ML démarrée (MQTT direct)", {
-              description: `Durée: ${dureeMinutes} minutes`
+              description: `Durée estimée basée sur la dernière recommandation`
             });
           } else {
             toast.error("Erreur de démarrage", {
-              description: backendResult.message || "Vérifiez la connexion MQTT"
+              description: "Vérifiez la connexion MQTT"
             });
           }
         }
