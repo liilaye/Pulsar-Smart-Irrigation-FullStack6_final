@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useMQTT } from '@/hooks/useMQTT';
+import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
 
 interface MLRecommendation {
@@ -11,6 +12,8 @@ interface MLRecommendation {
   volume_eau_m3: number;
   matt: string;
   status: string;
+  mqtt_started?: boolean;
+  auto_irrigation?: boolean;
 }
 
 export const MLIrrigationControl = () => {
@@ -18,34 +21,32 @@ export const MLIrrigationControl = () => {
   const [isMLActive, setIsMLActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastMLCommand, setLastMLCommand] = useState<string | null>(null);
-  const { isConnected, publishIrrigationCommand } = useMQTT();
+  const { isConnected } = useMQTT();
 
   const handleMLRecommendation = async () => {
     if (isLoading) return;
     setIsLoading(true);
-    setLastMLCommand('Génération recommandation ML...');
+    setLastMLCommand('Génération recommandation ML via Backend Flask...');
 
     try {
-      // Simulation d'une recommandation ML
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('🤖 Demande recommandation ML via Backend Flask...');
+      const features = backendService.getDefaultSoilClimateFeatures();
+      const prediction = await backendService.getMLRecommendation(features);
       
-      const simulatedRecommendation: MLRecommendation = {
-        duree_minutes: Math.floor(Math.random() * 30) + 15, // 15-45 minutes
-        volume_eau_m3: Math.round((Math.random() * 0.5 + 0.3) * 100) / 100, // 0.3-0.8 m³
-        matt: "Recommandation basée sur les conditions simulées du sol et du climat",
-        status: "ok"
-      };
-      
-      setLastMLRecommendation(simulatedRecommendation);
-      setLastMLCommand(`ML: ${Math.floor(simulatedRecommendation.duree_minutes)} min recommandées`);
-      toast.success("Recommandation ML générée!", {
-        description: `Durée: ${Math.floor(simulatedRecommendation.duree_minutes)} minutes`
-      });
+      if (prediction && prediction.status === 'ok') {
+        setLastMLRecommendation(prediction);
+        setLastMLCommand(`ML via Backend Flask: ${Math.floor(prediction.duree_minutes)} min recommandées`);
+        toast.success("Recommandation ML générée via Backend Flask!", {
+          description: `Durée: ${Math.floor(prediction.duree_minutes)} minutes`
+        });
+      } else {
+        throw new Error('Erreur dans la réponse ML');
+      }
     } catch (error) {
-      console.error("❌ Erreur recommandation ML:", error);
-      setLastMLCommand('Erreur génération ML');
-      toast.error("Erreur ML", {
-        description: "Impossible de générer la recommandation ML"
+      console.error("❌ Erreur recommandation ML Backend Flask:", error);
+      setLastMLCommand('Erreur génération ML Backend Flask');
+      toast.error("Erreur ML Backend Flask", {
+        description: "Impossible de générer la recommandation ML via Backend Flask"
       });
     } finally {
       setIsLoading(false);
@@ -57,30 +58,30 @@ export const MLIrrigationControl = () => {
     setIsLoading(true);
     
     const action = isMLActive ? 'ARRÊT' : 'DÉMARRAGE';
-    console.log(`🤖 Action irrigation ML: ${action}`);
+    console.log(`🤖 Action irrigation ML via Backend Flask: ${action}`);
 
     try {
       if (isMLActive) {
-        // ARRÊTER l'irrigation ML
-        console.log('📤 Envoi commande ARRÊT ML...');
-        setLastMLCommand('Arrêt ML en cours...');
+        // ARRÊTER l'irrigation ML via Backend Flask
+        console.log('📤 Envoi commande ARRÊT ML via Backend Flask...');
+        setLastMLCommand('Arrêt ML via Backend Flask...');
         
-        const success = await publishIrrigationCommand(0);
+        const response = await backendService.stopIrrigation();
         
-        if (success) {
+        if (response.success) {
           setIsMLActive(false);
-          setLastMLCommand('Irrigation ML arrêtée');
-          toast.success("Irrigation ML arrêtée", {
-            description: "Commande STOP ML envoyée"
+          setLastMLCommand('Irrigation ML arrêtée via Backend Flask');
+          toast.success("Irrigation ML arrêtée via Backend Flask", {
+            description: "Commande STOP ML envoyée via Backend Flask"
           });
         } else {
-          setLastMLCommand('Erreur arrêt ML');
-          toast.error("Erreur lors de l'arrêt ML", {
-            description: "Impossible d'arrêter l'irrigation ML"
+          setLastMLCommand('Erreur arrêt ML Backend Flask');
+          toast.error("Erreur arrêt ML Backend Flask", {
+            description: response.message || "Impossible d'arrêter l'irrigation ML"
           });
         }
       } else {
-        // DÉMARRER l'irrigation ML
+        // DÉMARRER l'irrigation ML AUTO via Backend Flask
         if (!lastMLRecommendation) {
           setLastMLCommand('Aucune recommandation ML disponible');
           toast.error("Aucune recommandation ML", {
@@ -89,29 +90,30 @@ export const MLIrrigationControl = () => {
           return;
         }
 
-        console.log('📤 Démarrage irrigation ML auto...');
-        setLastMLCommand('Démarrage ML auto...');
+        console.log('📤 Démarrage irrigation ML AUTO via Backend Flask...');
+        setLastMLCommand('Démarrage ML AUTO via Backend Flask...');
         
-        const success = await publishIrrigationCommand(1);
+        const features = backendService.getDefaultSoilClimateFeatures();
+        const mlResponse = await backendService.arroserAvecML(features);
         
-        if (success) {
+        if (mlResponse.status === 'ok' && mlResponse.mqtt_started && mlResponse.auto_irrigation) {
           setIsMLActive(true);
-          setLastMLCommand(`ML actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min`);
-          toast.success("Irrigation ML démarrée", {
-            description: "IA activée avec recommandation ML"
+          setLastMLCommand(`ML AUTO actif via Backend Flask: ${Math.floor(mlResponse.duree_minutes)} min`);
+          toast.success("Irrigation ML AUTO démarrée via Backend Flask", {
+            description: `IA activée: ${Math.floor(mlResponse.duree_minutes)} min automatique`
           });
         } else {
-          setLastMLCommand('Erreur démarrage ML');
-          toast.error("Erreur de démarrage ML", {
-            description: "Impossible de démarrer l'irrigation ML"
+          setLastMLCommand('Erreur démarrage ML AUTO Backend Flask');
+          toast.error("Erreur démarrage ML AUTO Backend Flask", {
+            description: mlResponse.matt || "Impossible de démarrer l'irrigation ML AUTO"
           });
         }
       }
     } catch (error) {
-      console.error('❌ Erreur irrigation ML:', error);
-      setLastMLCommand('Erreur ML système');
-      toast.error("Erreur système ML", {
-        description: "Problème de communication avec le système ML"
+      console.error('❌ Erreur irrigation ML Backend Flask:', error);
+      setLastMLCommand('Erreur ML système Backend Flask');
+      toast.error("Erreur système ML Backend Flask", {
+        description: "Problème de communication avec le Backend Flask ML"
       });
     } finally {
       setIsLoading(false);
@@ -128,7 +130,7 @@ export const MLIrrigationControl = () => {
               isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
             }`}></div>
             <span className="text-sm text-gray-600">
-              {isConnected ? 'ML Simulé' : 'ML Indisponible'}
+              {isConnected ? 'Backend Flask ML' : 'Backend Flask ML Indisponible'}
             </span>
           </div>
         </CardTitle>
@@ -138,7 +140,7 @@ export const MLIrrigationControl = () => {
         {/* Dernière recommandation ML */}
         {lastMLRecommendation && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-800">Recommandation ML Active</h4>
+            <h4 className="font-semibold text-blue-800">Recommandation ML Active (Backend Flask)</h4>
             <div className="grid grid-cols-2 gap-2 text-sm text-blue-700 mt-2">
               <div>Durée: {Math.floor(lastMLRecommendation.duree_minutes)} min</div>
               <div>Volume: {lastMLRecommendation.volume_eau_m3?.toFixed(2)} m³</div>
@@ -186,7 +188,7 @@ export const MLIrrigationControl = () => {
               {isLoading && isMLActive !== undefined ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <span>{isMLActive ? '🛑 Arrêter ML' : '🚀 Irrigation ML Auto'}</span>
+                <span>{isMLActive ? '🛑 Arrêter ML' : '🚀 Irrigation ML AUTO'}</span>
               )}
             </Button>
           </div>
@@ -197,10 +199,10 @@ export const MLIrrigationControl = () => {
           <div className="grid grid-cols-2 gap-2">
             <div className="flex justify-between">
               <span>Mode:</span>
-              <span className="text-blue-600">Simulation</span>
+              <span className="text-blue-600">Backend Flask ML</span>
             </div>
             <div className="flex justify-between">
-              <span>MQTT:</span>
+              <span>Backend Flask:</span>
               <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
                 {isConnected ? 'Connecté' : 'Déconnecté'}
               </span>
@@ -208,13 +210,13 @@ export const MLIrrigationControl = () => {
             <div className="flex justify-between">
               <span>ML Engine:</span>
               <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
-                {isConnected ? 'Simulé' : 'Indisponible'}
+                {isConnected ? 'Backend Flask Prêt' : 'Indisponible'}
               </span>
             </div>
             <div className="flex justify-between">
               <span>État ML:</span>
               <span className={isMLActive ? 'text-blue-600' : 'text-gray-600'}>
-                {isMLActive ? 'Actif' : 'Inactif'}
+                {isMLActive ? 'AUTO Actif' : 'Inactif'}
               </span>
             </div>
           </div>

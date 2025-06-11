@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Power, PowerOff } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
+import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
 
 export const ManualIrrigationControl = () => {
@@ -14,37 +14,37 @@ export const ManualIrrigationControl = () => {
   const [isManualActive, setIsManualActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastCommand, setLastCommand] = useState<string | null>(null);
-  const { isConnected, publishIrrigationCommand } = useMQTT();
+  const { isConnected } = useMQTT();
 
   const handleManualIrrigation = async () => {
     if (isLoading) return;
     
     setIsLoading(true);
     const action = isManualActive ? 'ARRÊT' : 'DÉMARRAGE';
-    console.log(`🚿 Action irrigation manuelle: ${action}`);
+    console.log(`🚿 Action irrigation manuelle via Backend Flask: ${action}`);
 
     try {
       if (isManualActive) {
-        // ARRÊTER l'irrigation
-        console.log('📤 Envoi commande ARRÊT...');
-        setLastCommand('ARRÊT en cours...');
+        // ARRÊTER l'irrigation via Backend Flask
+        console.log('📤 Envoi commande ARRÊT via Backend Flask...');
+        setLastCommand('ARRÊT via Backend Flask...');
         
-        const success = await publishIrrigationCommand(0);
+        const response = await backendService.publishMQTTCommand(0);
         
-        if (success) {
+        if (response.success) {
           setIsManualActive(false);
-          setLastCommand('Irrigation arrêtée');
+          setLastCommand('Irrigation arrêtée via Backend Flask');
           toast.success("Irrigation arrêtée", {
-            description: "Commande STOP envoyée avec succès"
+            description: "Commande STOP envoyée via Backend Flask"
           });
         } else {
-          setLastCommand('Erreur lors de l\'arrêt');
-          toast.error("Erreur lors de l'arrêt", {
-            description: "Impossible d'envoyer la commande STOP"
+          setLastCommand('Erreur Backend Flask lors de l\'arrêt');
+          toast.error("Erreur Backend Flask", {
+            description: response.message || "Impossible d'envoyer la commande STOP"
           });
         }
       } else {
-        // DÉMARRER l'irrigation
+        // DÉMARRER l'irrigation via Backend Flask
         const hours = parseInt(manualDuration.hours) || 0;
         const minutes = parseInt(manualDuration.minutes) || 0;
         
@@ -55,29 +55,29 @@ export const ManualIrrigationControl = () => {
           return;
         }
 
-        console.log(`📤 Démarrage irrigation: ${hours}h ${minutes}min`);
-        setLastCommand(`Démarrage ${hours}h ${minutes}min...`);
+        console.log(`📤 Démarrage irrigation via Backend Flask: ${hours}h ${minutes}min`);
+        setLastCommand(`Démarrage via Backend Flask: ${hours}h ${minutes}min...`);
         
-        const success = await publishIrrigationCommand(1);
+        const response = await backendService.startManualIrrigation(hours, minutes);
         
-        if (success) {
+        if (response.success) {
           setIsManualActive(true);
-          setLastCommand(`Irrigation active: ${hours}h ${minutes}min`);
-          toast.success("Irrigation démarrée", {
+          setLastCommand(`Irrigation active via Backend Flask: ${hours}h ${minutes}min`);
+          toast.success("Irrigation démarrée via Backend Flask", {
             description: `Durée: ${hours}h ${minutes}min`
           });
         } else {
-          setLastCommand('Erreur de démarrage');
-          toast.error("Erreur de démarrage", {
-            description: "Impossible de démarrer l'irrigation"
+          setLastCommand('Erreur Backend Flask de démarrage');
+          toast.error("Erreur Backend Flask", {
+            description: response.message || "Impossible de démarrer l'irrigation"
           });
         }
       }
     } catch (error) {
-      console.error('❌ Erreur irrigation manuelle:', error);
-      setLastCommand('Erreur de communication');
-      toast.error("Erreur de connexion", {
-        description: "Impossible de communiquer avec le système"
+      console.error('❌ Erreur irrigation manuelle Backend Flask:', error);
+      setLastCommand('Erreur de communication Backend Flask');
+      toast.error("Erreur Backend Flask", {
+        description: "Impossible de communiquer avec le Backend Flask"
       });
     } finally {
       setIsLoading(false);
@@ -105,7 +105,7 @@ export const ManualIrrigationControl = () => {
               isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
             }`}></div>
             <span className="text-sm text-gray-600">
-              {isConnected ? 'Broker Connecté' : 'Broker Déconnecté'}
+              {isConnected ? 'Backend Flask Connecté' : 'Backend Flask Déconnecté'}
             </span>
           </div>
         </CardTitle>
@@ -213,12 +213,12 @@ export const ManualIrrigationControl = () => {
           <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
             <div className="flex items-center justify-between">
               <span>Mode:</span>
-              <span className="text-blue-600">Simulation Locale</span>
+              <span className="text-blue-600">Backend Flask → Broker MQTT</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Broker MQTT:</span>
+              <span>Backend Flask:</span>
               <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
-                {isConnected ? 'Connecté (simulé)' : 'Déconnecté'}
+                {isConnected ? 'Connecté' : 'Déconnecté'}
               </span>
             </div>
           </div>

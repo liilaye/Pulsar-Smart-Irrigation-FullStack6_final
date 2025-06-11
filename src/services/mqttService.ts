@@ -1,4 +1,3 @@
-
 interface MQTTMessage {
   topic: string;
   payload: string;
@@ -17,11 +16,11 @@ interface MQTTServiceState {
 
 class MQTTService {
   private state: MQTTServiceState = {
-    isConnected: true, // Simulation locale pour l'instant
-    currentBroker: 'Simulation Locale',
+    isConnected: false,
+    currentBroker: 'Backend Flask → Broker MQTT',
     reconnectAttempts: 0,
     lastMessage: null,
-    connectionHealth: 100,
+    connectionHealth: 0,
     lastError: null,
     debugLogs: []
   };
@@ -31,7 +30,8 @@ class MQTTService {
   private healthCheckInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.addDebugLog('🚀 Service MQTT en mode simulation locale');
+    this.addDebugLog('🚀 Service MQTT via Backend Flask');
+    this.checkBackendConnection();
     this.startHealthCheck();
   }
 
@@ -47,76 +47,93 @@ class MQTTService {
     console.log(logEntry);
   }
 
-  async connect(): Promise<boolean> {
-    this.addDebugLog('🔄 Connexion simulée au broker MQTT...');
-    
-    // Simulation d'une connexion réussie
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    this.state.isConnected = true;
-    this.state.reconnectAttempts = 0;
-    this.state.connectionHealth = 100;
-    this.state.lastError = null;
-    this.addDebugLog('✅ Broker MQTT simulé connecté');
+  private async checkBackendConnection() {
+    try {
+      const response = await fetch('/api/health');
+      if (response.ok) {
+        this.state.isConnected = true;
+        this.state.connectionHealth = 100;
+        this.state.lastError = null;
+        this.addDebugLog('✅ Backend Flask connecté');
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      this.state.isConnected = false;
+      this.state.connectionHealth = 0;
+      this.state.lastError = `Backend Flask inaccessible: ${error}`;
+      this.addDebugLog('❌ Backend Flask non disponible');
+    }
     this.notifyListeners();
-    
-    return true;
+  }
+
+  async connect(): Promise<boolean> {
+    this.addDebugLog('🔄 Vérification connexion Backend Flask...');
+    await this.checkBackendConnection();
+    return this.state.isConnected;
   }
 
   publish(topic: string, message: string, options: { qos?: 0 | 1 | 2; retain?: boolean } = {}): boolean {
     if (!this.state.isConnected) {
-      this.addDebugLog('❌ Publication impossible: broker déconnecté');
+      this.addDebugLog('❌ Publication impossible: Backend Flask déconnecté');
       return false;
     }
 
-    this.addDebugLog(`📤 Publication simulée: ${topic} → ${message.substring(0, 50)}...`);
-    this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 1);
-    this.notifyListeners();
+    this.addDebugLog(`📤 Publication via Backend Flask: ${topic} → ${message.substring(0, 50)}...`);
     return true;
   }
 
   async publishIrrigationCommand(deviceState: 0 | 1): Promise<boolean> {
-    this.addDebugLog(`🚿 Commande irrigation: ${deviceState ? 'ON' : 'OFF'}`);
+    this.addDebugLog(`🚿 Commande irrigation via Backend Flask: ${deviceState ? 'ON' : 'OFF'}`);
     
     if (!this.state.isConnected) {
-      this.addDebugLog('❌ Broker non connecté');
+      this.addDebugLog('❌ Backend Flask non connecté');
       return false;
     }
 
-    // Simulation d'un délai réseau
-    await new Promise(resolve => setTimeout(resolve, 200));
-
     try {
-      // Simulation de l'envoi MQTT
-      const topic = 'cmd/PulsarInfinite/swr';
-      const payload = JSON.stringify({
-        cmd: 'switch_relay',
-        device: deviceState
+      const response = await fetch('/api/mqtt/test-publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ device: deviceState }),
       });
 
-      this.addDebugLog(`📡 Envoi MQTT simulé: ${topic} → ${payload}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       
-      // Simulation d'un message de confirmation
-      const confirmationMessage: MQTTMessage = {
-        topic: 'data/PulsarInfinite/swr',
-        payload: JSON.stringify({
-          type: 'RESPONSE',
-          json: { switch_relay: { device: deviceState } },
-          timestamp: Date.now()
-        }),
-        timestamp: new Date()
-      };
-      
-      this.state.lastMessage = confirmationMessage;
-      this.notifyMessageListeners(confirmationMessage);
-      this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 5);
-      this.notifyListeners();
-      
-      this.addDebugLog(`✅ Commande irrigation ${deviceState ? 'ON' : 'OFF'} envoyée avec succès`);
-      return true;
+      if (data.success) {
+        // Simuler un message de confirmation
+        const confirmationMessage: MQTTMessage = {
+          topic: 'data/PulsarInfinite/swr',
+          payload: JSON.stringify({
+            type: 'RESPONSE',
+            json: { switch_relay: { device: deviceState } },
+            timestamp: Date.now()
+          }),
+          timestamp: new Date()
+        };
+        
+        this.state.lastMessage = confirmationMessage;
+        this.notifyMessageListeners(confirmationMessage);
+        this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 5);
+        this.notifyListeners();
+        
+        this.addDebugLog(`✅ Commande irrigation ${deviceState ? 'ON' : 'OFF'} envoyée via Backend Flask`);
+        return true;
+      } else {
+        throw new Error(data.message || 'Erreur Backend Flask');
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
-      this.addDebugLog(`❌ Erreur publication: ${errorMsg}`);
+      this.addDebugLog(`❌ Erreur publication Backend Flask: ${errorMsg}`);
+      this.state.lastError = errorMsg;
+      this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 10);
+      this.notifyListeners();
       return false;
     }
   }
@@ -127,18 +144,14 @@ class MQTTService {
     }
 
     this.healthCheckInterval = setInterval(() => {
-      if (this.state.isConnected) {
-        // Simulation du health check
-        this.state.connectionHealth = Math.max(95, this.state.connectionHealth - 1);
-      }
-      this.notifyListeners();
+      this.checkBackendConnection();
     }, 10000);
   }
 
   forceReconnect() {
-    this.addDebugLog('🔄 Reconnexion forcée demandée');
-    this.state.reconnectAttempts = 0;
-    this.connect();
+    this.addDebugLog('🔄 Reconnexion forcée Backend Flask');
+    this.state.reconnectAttempts++;
+    this.checkBackendConnection();
   }
 
   getState(): MQTTServiceState {
@@ -174,10 +187,10 @@ class MQTTService {
   getBrokerInfo() {
     return {
       current: this.state.currentBroker,
-      available: [{ url: 'Simulation Locale', priority: 1 }],
+      available: [{ url: 'Backend Flask → Broker MQTT', priority: 1 }],
       health: this.state.connectionHealth,
       reconnectAttempts: this.state.reconnectAttempts,
-      clientId: 'Frontend_Simulator',
+      clientId: 'Frontend_via_Flask',
       lastError: this.state.lastError,
       debugLogs: this.getDebugLogs()
     };
@@ -186,12 +199,22 @@ class MQTTService {
   async testConnection(): Promise<{ success: boolean; details: string[] }> {
     const details: string[] = [];
     
-    details.push('🔍 Test connexion broker simulé...');
-    details.push('✅ Broker simulé accessible');
-    details.push('✅ Commandes MQTT simulées');
-    details.push('✅ Mode développement actif');
-    
-    return { success: true, details };
+    try {
+      details.push('🔍 Test connexion Backend Flask...');
+      const response = await fetch('/api/health');
+      
+      if (response.ok) {
+        details.push('✅ Backend Flask accessible');
+        details.push('✅ Prêt pour commandes MQTT');
+        return { success: true, details };
+      } else {
+        details.push(`❌ Backend Flask erreur HTTP ${response.status}`);
+        return { success: false, details };
+      }
+    } catch (error) {
+      details.push(`❌ Backend Flask inaccessible: ${error}`);
+      return { success: false, details };
+    }
   }
 
   destroy() {
