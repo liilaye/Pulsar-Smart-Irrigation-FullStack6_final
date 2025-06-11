@@ -35,7 +35,7 @@ export const useMQTT = () => {
       }
     });
 
-    // Démarrer la connexion
+    // Démarrer la connexion au broker PulsarInfinite
     mqttService.connect();
 
     return () => {
@@ -49,7 +49,7 @@ export const useMQTT = () => {
   }, []);
 
   const publishIrrigationCommand = useCallback(async (deviceState: 0 | 1) => {
-    console.log(`🚿 Commande irrigation robuste: ${deviceState ? 'ON' : 'OFF'}`);
+    console.log(`🚿 Commande irrigation PulsarInfinite: ${deviceState ? 'ON' : 'OFF'}`);
     const success = await mqttService.publishIrrigationCommand(deviceState);
     
     if (success) {
@@ -61,8 +61,8 @@ export const useMQTT = () => {
   }, []);
 
   const retryConnection = useCallback(() => {
-    console.log('🔄 Retry connexion MQTT demandé');
-    mqttService.connect();
+    console.log('🔄 Retry connexion PulsarInfinite demandé');
+    mqttService.forceReconnect();
   }, []);
 
   const getBrokerInfo = useCallback(() => {
