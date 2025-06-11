@@ -1,4 +1,3 @@
-
 // Types et interfaces
 export interface IrrigationRequest {
   durationHours: number;
@@ -46,7 +45,6 @@ import { irrigationDataService } from './irrigationDataService';
 
 class BackendService {
   private getBaseUrl(): string {
-    // En local, utiliser le proxy Vite qui redirige vers localhost:5002
     return '/api';
   }
 
@@ -93,6 +91,29 @@ class BackendService {
     }
   }
 
+  async resetIrrigationState(): Promise<BackendResponse> {
+    try {
+      console.log('🔄 Reset état irrigation via Flask...');
+      const response = await this.makeRequest('/irrigation/reset', {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ État irrigation réinitialisé:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur reset irrigation Flask:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      return { success: false, message: `Erreur reset Backend Flask: ${errorMessage}` };
+    }
+  }
+
   async getMLRecommendation(features: number[]): Promise<MLPrediction> {
     try {
       console.log('🤖 Récupération recommandation ML via Flask backend...');
@@ -106,6 +127,14 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        
+        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
+        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
+          console.log('🔄 Tentative auto-reset...');
+          await this.resetIrrigationState();
+          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
+        }
+        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -135,6 +164,14 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        
+        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
+        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
+          console.log('🔄 Tentative auto-reset...');
+          await this.resetIrrigationState();
+          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
+        }
+        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -174,6 +211,14 @@ class BackendService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        
+        // Si erreur 400 avec message "Arrosage déjà en cours", proposer reset
+        if (response.status === 400 && errorText.includes('Arrosage déjà en cours')) {
+          console.log('🔄 Tentative auto-reset...');
+          await this.resetIrrigationState();
+          throw new Error('Irrigation bloquée - État réinitialisé. Veuillez réessayer.');
+        }
+        
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
@@ -274,7 +319,6 @@ class BackendService {
         return null;
       }
 
-      // Vérifier si la réponse contient du JSON valide
       const text = await response.text();
       if (!text.trim()) {
         console.error('❌ Réponse vide du serveur');
@@ -381,7 +425,6 @@ class BackendService {
   }
   
   getDefaultSoilClimateFeatures(): number[] {
-    // ✅ CORRECTION: Retourner un tableau ordonné de 15 valeurs
     return [
       25.0,   // Température_air_(°C)
       0,      // Précipitation_(mm)

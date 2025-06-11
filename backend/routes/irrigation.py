@@ -33,6 +33,36 @@ def get_irrigation_status():
         print(f"❌ Erreur status irrigation: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@irrigation_bp.route("/irrigation/reset", methods=["POST"])
+def reset_irrigation_state():
+    """Force le reset de l'état de l'irrigation"""
+    try:
+        global irrigation_state
+        print("🔄 Reset forcé de l'état irrigation")
+        
+        # Arrêter toute irrigation en cours
+        mqtt_service.arreter_arrosage()
+        
+        # Reset complet de l'état
+        irrigation_state = {
+            "isActive": False,
+            "type": None,
+            "startTime": None,
+            "duration": None,
+            "source": None
+        }
+        
+        print("✅ État irrigation réinitialisé")
+        return jsonify({
+            "success": True,
+            "message": "État irrigation réinitialisé",
+            "state": irrigation_state
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Erreur reset irrigation: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @irrigation_bp.route("/irrigation/manual", methods=["POST"])
 def start_manual_irrigation():
     """Démarre une irrigation manuelle"""
@@ -48,6 +78,25 @@ def start_manual_irrigation():
         total_minutes = (duration_hours * 60) + duration_minutes
         if total_minutes <= 0:
             return jsonify({"success": False, "message": "Durée invalide"}), 400
+        
+        # Vérifier si une irrigation est déjà active
+        if irrigation_state["isActive"]:
+            print(f"⚠️ Tentative démarrage irrigation mais irrigation déjà active: {irrigation_state}")
+            # Auto-reset si l'irrigation semble bloquée (plus de 4 heures)
+            if irrigation_state["startTime"] and (time.time() - irrigation_state["startTime"]) > 14400:
+                print("🔄 Auto-reset état irrigation (timeout)")
+                irrigation_state.update({
+                    "isActive": False,
+                    "type": None,
+                    "startTime": None,
+                    "duration": None,
+                    "source": None
+                })
+            else:
+                return jsonify({
+                    "success": False, 
+                    "message": "Arrosage déjà en cours. Utilisez /irrigation/reset pour forcer l'arrêt."
+                }), 400
         
         print(f"🚿 Démarrage irrigation manuelle: {total_minutes} minutes")
         
@@ -127,6 +176,25 @@ def arroser_ml():
                 "status": "error",
                 "message": "15 features requises pour le modèle ML"
             }), 400
+        
+        # Vérifier si une irrigation est déjà active
+        if irrigation_state["isActive"]:
+            print(f"⚠️ Tentative démarrage ML mais irrigation déjà active: {irrigation_state}")
+            # Auto-reset si l'irrigation semble bloquée
+            if irrigation_state["startTime"] and (time.time() - irrigation_state["startTime"]) > 14400:
+                print("🔄 Auto-reset état irrigation ML (timeout)")
+                irrigation_state.update({
+                    "isActive": False,
+                    "type": None,
+                    "startTime": None,
+                    "duration": None,
+                    "source": None
+                })
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Arrosage déjà en cours. Utilisez /irrigation/reset pour forcer l'arrêt."
+                }), 400
         
         print("🤖 Début prédiction ML...")
         
