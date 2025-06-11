@@ -393,5 +393,3 @@ class BackendService {
 }
 
 export const backendService = new BackendService();
-
-}
