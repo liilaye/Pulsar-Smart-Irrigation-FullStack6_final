@@ -1,5 +1,5 @@
 
-// Service API centralisé pour toutes les communications avec le backend
+// Service API pour développement local uniquement
 class ApiService {
   private baseUrl = '/api';
 
@@ -7,12 +7,12 @@ class ApiService {
     try {
       const response = await fetch(`${this.baseUrl}/health`);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`Backend local non accessible: HTTP ${response.status}`);
       }
       return await response.json();
     } catch (error) {
-      console.error('❌ Health check failed:', error);
-      throw error;
+      console.error('❌ Backend Flask local non disponible:', error);
+      throw new Error('Backend Flask doit être démarré sur localhost:5002');
     }
   }
 
@@ -24,7 +24,7 @@ class ApiService {
       }
       return await response.json();
     } catch (error) {
-      console.error(`❌ GET ${endpoint} failed:`, error);
+      console.error(`❌ GET ${endpoint} échoué:`, error);
       throw error;
     }
   }
@@ -45,11 +45,12 @@ class ApiService {
       
       return await response.json();
     } catch (error) {
-      console.error(`❌ POST ${endpoint} failed:`, error);
+      console.error(`❌ POST ${endpoint} échoué:`, error);
       throw error;
     }
   }
 
+  // Méthodes spécifiques
   async testMQTT(device: 0 | 1) {
     return this.post('/mqtt/test-publish', { device });
   }

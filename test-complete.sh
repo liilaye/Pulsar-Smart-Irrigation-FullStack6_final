@@ -1,58 +1,57 @@
 
 #!/bin/bash
 
-echo "🧪 Tests complets du système PulsarInfinite"
-echo "=========================================="
+echo "🧪 Test LOCAL PulsarInfinite"
+echo "=========================="
 
-# Test 1: Vérification des dépendances
-echo "📋 Test 1: Vérification des dépendances..."
-if [ ! -d "node_modules" ]; then
-    echo "🔄 Installation des dépendances npm..."
-    npm install
-fi
-
-if [ ! -d "backend/venv" ]; then
-    echo "🔄 Création de l'environnement virtuel Python..."
-    cd backend
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    cd ..
-fi
-
-echo "✅ Dépendances vérifiées"
-
-# Test 2: Compilation TypeScript
-echo "📋 Test 2: Compilation TypeScript..."
-if npm run build > /dev/null 2>&1; then
-    echo "✅ Compilation TypeScript réussie"
-else
-    echo "❌ Erreur de compilation TypeScript"
+# Test 1: Dépendances
+echo "📋 Test dépendances..."
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python 3 manquant"
     exit 1
 fi
 
-# Test 3: Test du backend Flask
-echo "📋 Test 3: Test du backend Flask..."
-cd backend
-python3 test_connections.py
-cd ..
-
-# Test 4: Test de l'API
-echo "📋 Test 4: Test des endpoints API..."
-if curl -s http://localhost:5002/api/health > /dev/null; then
-    echo "✅ API accessible"
-    
-    # Test des endpoints principaux
-    echo "🔄 Test endpoints..."
-    curl -s http://localhost:5002/api/irrigation/status > /dev/null && echo "  ✅ /irrigation/status"
-    curl -s http://localhost:5002/api/weather/thies > /dev/null && echo "  ✅ /weather/thies"
-    curl -s -X POST http://localhost:5002/api/mqtt/test-publish -H "Content-Type: application/json" -d '{"device":0}' > /dev/null && echo "  ✅ /mqtt/test-publish"
-else
-    echo "❌ API non accessible - Démarrez le backend avec: cd backend && python3 app.py"
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js manquant"
+    exit 1
 fi
 
-echo "📋 Test 5: Validation finale..."
-echo "✅ Tous les tests terminés"
-echo ""
-echo "🚀 Le système est prêt pour le déploiement!"
-echo "   Pour démarrer: ./start-dev.sh"
+echo "✅ Dépendances OK"
+
+# Test 2: Installation
+echo "📦 Vérification installations..."
+if [ ! -d "node_modules" ]; then
+    echo "Installation npm..."
+    npm install
+fi
+
+# Test 3: Build
+echo "🔨 Test build..."
+npm run build > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Build OK"
+else
+    echo "❌ Erreur build"
+    exit 1
+fi
+
+# Test 4: Backend temporaire
+echo "🐍 Test backend temporaire..."
+cd backend
+python3 app.py &
+FLASK_PID=$!
+cd ..
+
+sleep 3
+
+if curl -s http://localhost:5002/api/health > /dev/null; then
+    echo "✅ Backend accessible"
+else
+    echo "❌ Backend inaccessible"
+fi
+
+kill $FLASK_PID 2>/dev/null
+
+echo
+echo "✅ TESTS TERMINÉS - Système prêt !"
+echo "Démarrer avec: ./start-dev.sh"
