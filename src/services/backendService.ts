@@ -1,3 +1,4 @@
+
 // Types et interfaces
 export interface IrrigationRequest {
   durationHours: number;
