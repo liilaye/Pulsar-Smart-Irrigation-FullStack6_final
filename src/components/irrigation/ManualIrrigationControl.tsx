@@ -1,438 +1,254 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Volume2, Play, Square, Bot, Lightbulb, Leaf, Droplets, TrendingUp } from 'lucide-react';
-import { irrigationSyncService } from '@/services/irrigationSyncService';
-import { irrigationDataService } from '@/services/irrigationDataService';
-import { api } from '@/services/apiService';
-import { useToast } from '@/hooks/use-toast';
-
-interface ManualIrrigationStatus {
-  isActive: boolean;
-  duration: number;
-  volume: number;
-}
-
-interface MLRecommendation {
-  duree_minutes: number;
-  volume_eau_m3: number;
-}
-
-interface NPKRecommendation {
-  azote: string;
-  phosphore: string;
-  potassium: string;
-  conseil: string;
-  action: string;
-}
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Power, PowerOff, Clock, Droplets } from 'lucide-react';
+import { backendService } from '@/services/backendService';
+import { useMQTT } from '@/hooks/useMQTT';
+import { toast } from "sonner";
 
 export const ManualIrrigationControl = () => {
-  const [manualStatus, setManualStatus] = useState<ManualIrrigationStatus>({
-    isActive: false,
-    duration: 30,
-    volume: 20
-  });
-  const [mlRecommendation, setMLRecommendation] = useState<MLRecommendation | null>(null);
-  const [isLoadingRecommendation, setIsLoadingRecommendation] = useState(false);
-  const [conflictMessage, setConflictMessage] = useState<string>('');
-  const [activeDuration, setActiveDuration] = useState<number>(0);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [manualDuration, setManualDuration] = useState({ hours: '0', minutes: '30' });
+  const [isManualActive, setIsManualActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { isConnected, publishIrrigationCommand } = useMQTT();
 
-  // Génération des recommandations NPK basées sur le modèle XGBoost
-  const generateNPKRecommendation = (recommendation: MLRecommendation): NPKRecommendation => {
-    const volumeRatio = recommendation.volume_eau_m3;
-    const durationRatio = recommendation.duree_minutes / 30; // Référence 30 min
-    
-    if (volumeRatio < 0.5) {
-      return {
-        azote: "Modéré (40-50 mg/kg)",
-        phosphore: "Optimal (35-40 mg/kg)", 
-        potassium: "Élevé (140-160 mg/kg)",
-        conseil: "Sol bien hydraté, maintenir apports NPK standards",
-        action: "Fertilisation d'entretien recommandée"
-      };
-    } else if (volumeRatio > 1.2) {
-      return {
-        azote: "Réduit (30-35 mg/kg)",
-        phosphore: "Standard (25-30 mg/kg)",
-        potassium: "Très élevé (160-180 mg/kg)",
-        conseil: "Irrigation intensive, augmenter potassium pour éviter le lessivage",
-        action: "Fractionnement des apports NPK requis"
-      };
-    } else {
-      return {
-        azote: "Optimal (45-55 mg/kg)",
-        phosphore: "Bon (38-45 mg/kg)",
-        potassium: "Standard (150-170 mg/kg)",
-        conseil: "Conditions équilibrées, apports NPK normaux",
-        action: "Programme de fertilisation standard"
-      };
-    }
-  };
-
+  // Vérifier l'état de l'irrigation périodiquement
   useEffect(() => {
-    // S'abonner aux changements d'état global
-    const unsubscribe = irrigationSyncService.subscribe((state) => {
-      setManualStatus(prev => ({
-        ...prev,
-        isActive: state.isActive && state.type === 'manual'
-      }));
-      
-      if (state.isActive && state.type === 'manual') {
-        setActiveDuration(irrigationSyncService.getActiveDuration());
-      } else {
-        setActiveDuration(0);
+    const checkIrrigationStatus = async () => {
+      try {
+        const status = await backendService.getIrrigationStatus();
+        if (status && typeof status === 'object') {
+          setIsManualActive(status.isActive && status.type === 'manual');
+        }
+      } catch (error) {
+        // Ignorer les erreurs de statut pour éviter les logs répétitifs
       }
-      
-      // Effacer le message de conflit si irrigation arrêtée
-      if (!state.isActive) {
-        setConflictMessage('');
-      }
-    });
+    };
 
-    return unsubscribe;
+    checkIrrigationStatus();
+    const interval = setInterval(checkIrrigationStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    // Mettre à jour la durée active toutes les secondes
-    const interval = setInterval(() => {
-      if (manualStatus.isActive) {
-        setActiveDuration(irrigationSyncService.getActiveDuration());
-      }
-    }, 1000);
+  const handleManualIrrigation = async () => {
+    if (isLoading) return;
     
-    return () => clearInterval(interval);
-  }, [manualStatus.isActive]);
+    setIsLoading(true);
+    console.log(`🚿 Action irrigation manuelle: ${isManualActive ? 'ARRÊT' : 'DÉMARRAGE'}`);
 
-  const getMLRecommendation = async () => {
-    setIsLoadingRecommendation(true);
     try {
-      const featuresArray = [
-        29, 0, 62, 4, 1, 600, 26, 40, 0.9, 6.5, 10, 15, 20, 4, 2
-      ];
-
-      const data = await api.arroserAvecML(featuresArray);
-      if (data && data.status === 'ok') {
-        setMLRecommendation({
-          duree_minutes: data.duree_minutes,
-          volume_eau_m3: data.volume_eau_m3
-        });
+      if (isManualActive) {
+        // ARRÊTER l'irrigation
+        console.log('🛑 Envoi commande ARRÊT irrigation...');
         
-        toast({
-          title: "Recommandation ML reçue",
-          description: `${data.duree_minutes.toFixed(1)} min - ${data.volume_eau_m3.toFixed(3)} m³`
-        });
+        // Méthode 1: Via backend Flask
+        const backendResult = await backendService.stopIrrigation();
+        console.log('Backend STOP result:', backendResult);
+        
+        // Méthode 2: Direct MQTT en parallèle pour assurer l'arrêt
+        const mqttResult = await publishIrrigationCommand(0);
+        console.log('MQTT STOP result:', mqttResult);
+        
+        if (backendResult.success || mqttResult) {
+          setIsManualActive(false);
+          toast.success("🛑 Irrigation arrêtée", {
+            description: "Commande STOP envoyée au broker MQTT"
+          });
+        } else {
+          toast.error("❌ Erreur lors de l'arrêt", {
+            description: backendResult.message || "Vérifiez la connexion MQTT"
+          });
+        }
+      } else {
+        // DÉMARRER l'irrigation
+        const hours = parseInt(manualDuration.hours) || 0;
+        const minutes = parseInt(manualDuration.minutes) || 0;
+        
+        if (hours === 0 && minutes === 0) {
+          toast.error("⚠️ Durée invalide", {
+            description: "Veuillez spécifier une durée supérieure à 0"
+          });
+          return;
+        }
+
+        console.log(`🚿 Démarrage irrigation: ${hours}h ${minutes}min`);
+        
+        // Méthode 1: Via backend Flask  
+        const backendResult = await backendService.startManualIrrigation(hours, minutes);
+        console.log('Backend START result:', backendResult);
+        
+        if (backendResult.success) {
+          setIsManualActive(true);
+          toast.success("✅ Irrigation démarrée", {
+            description: `Durée: ${hours}h ${minutes}min - MQTT activé`
+          });
+        } else {
+          // Méthode 2: Fallback direct MQTT si backend échoue
+          console.log('🔄 Fallback: commande MQTT directe...');
+          const mqttResult = await publishIrrigationCommand(1);
+          
+          if (mqttResult) {
+            setIsManualActive(true);
+            toast.success("✅ Irrigation démarrée (MQTT direct)", {
+              description: `Durée: ${hours}h ${minutes}min`
+            });
+          } else {
+            toast.error("❌ Erreur de démarrage", {
+              description: backendResult.message || "Vérifiez la connexion MQTT"
+            });
+          }
+        }
       }
     } catch (error) {
-      console.error("Erreur recommandation ML :", error);
-      toast({
-        title: "Erreur recommandation",
-        description: "Impossible d'obtenir la recommandation ML",
-        variant: "destructive"
+      console.error('❌ Erreur irrigation manuelle:', error);
+      toast.error("❌ Erreur de connexion", {
+        description: "Impossible de communiquer avec le système"
       });
     } finally {
-      setIsLoadingRecommendation(false);
+      setIsLoading(false);
     }
   };
 
-  const startManualIrrigation = async () => {
-    const { canStart, reason } = irrigationSyncService.canStartIrrigation('manual');
-    if (!canStart) {
-      setConflictMessage(reason || 'Irrigation déjà active');
-      toast({
-        title: "Conflit d'irrigation",
-        description: reason,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      if (irrigationSyncService.startIrrigation('manual', 'Manual_User', manualStatus.duration)) {
-        const sessionId = irrigationDataService.startIrrigationSession('manual', 'Manual_User');
-        setCurrentSessionId(sessionId);
-        
-        setManualStatus(prev => ({ ...prev, isActive: true }));
-        
-        setTimeout(() => {
-          if (sessionId) {
-            const volumeCalculated = (manualStatus.duration * manualStatus.volume) / 1000;
-            irrigationDataService.endIrrigationSession(sessionId, manualStatus.duration);
-            setCurrentSessionId(null);
-          }
-          irrigationSyncService.stopIrrigation('Manual_Auto_Complete');
-          setManualStatus(prev => ({ ...prev, isActive: false }));
-        }, manualStatus.duration * 60 * 1000);
-        
-        toast({
-          title: "Irrigation manuelle démarrée",
-          description: `${manualStatus.duration} min - ${(manualStatus.duration * manualStatus.volume / 1000).toFixed(3)} m³`,
-        });
-      }
-    } catch (error) {
-      console.error('Erreur démarrage manuel:', error);
-      toast({
-        title: "Erreur démarrage",
-        description: "Impossible de démarrer l'irrigation manuelle",
-        variant: "destructive"
-      });
-    }
+  const getTotalMinutes = () => {
+    const hours = parseInt(manualDuration.hours) || 0;
+    const minutes = parseInt(manualDuration.minutes) || 0;
+    return (hours * 60) + minutes;
   };
 
-  const stopManualIrrigation = () => {
-    if (irrigationSyncService.stopIrrigation('Manual_User')) {
-      if (currentSessionId) {
-        const volumeCalculated = (activeDuration / 60 * manualStatus.volume) / 1000;
-        irrigationDataService.endIrrigationSession(currentSessionId, activeDuration / 60);
-        setCurrentSessionId(null);
-      }
-      
-      setManualStatus(prev => ({ ...prev, isActive: false }));
-      
-      toast({
-        title: "Irrigation manuelle arrêtée",
-        description: `Durée: ${(activeDuration / 60).toFixed(1)} min`,
-      });
-    }
+  const getEstimatedVolume = () => {
+    const totalMinutes = getTotalMinutes();
+    return ((totalMinutes * 20) / 1000).toFixed(2); // 20L/min → m³
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Arrosage Manuel</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center space-x-4">
-              <div className={`w-4 h-4 rounded-full ${
-                manualStatus.isActive ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'
-              }`}></div>
-              
-              <Badge className={manualStatus.isActive ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}>
-                {manualStatus.isActive ? 'ACTIF' : 'ARRÊTÉ'}
-              </Badge>
-            </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Droplets className="h-5 w-5 text-blue-600" />
+            <span>Contrôle Manuel de l'Irrigation</span>
           </div>
-
-          {conflictMessage && (
-            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-sm text-red-700">
-                {conflictMessage}
-              </p>
-            </div>
-          )}
-
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${
+              isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+            }`}></div>
+            <span className="text-sm text-gray-600">
+              {isConnected ? 'MQTT Connecté' : 'MQTT Déconnecté'}
+            </span>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="space-y-6">
+        {/* Configuration de la durée */}
+        <div className="space-y-4">
+          <Label className="text-base font-medium">⏱️ Configuration de la durée</Label>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                <Clock className="h-4 w-4 inline mr-1" />
-                Durée (minutes)
-              </label>
-              <input
+              <Label className="text-sm">Heures</Label>
+              <Input
                 type="number"
-                value={manualStatus.duration}
-                onChange={(e) => setManualStatus(prev => ({ 
-                  ...prev, 
-                  duration: Math.max(1, parseInt(e.target.value) || 1)
-                }))}
-                disabled={manualStatus.isActive}
-                className="w-full px-3 py-2 border rounded-md"
-                min="1"
-                max="120"
+                min="0"
+                max="23"
+                value={manualDuration.hours}
+                onChange={(e) => setManualDuration({ ...manualDuration, hours: e.target.value })}
+                disabled={isManualActive || isLoading}
+                className="h-12 text-center text-lg"
               />
             </div>
-            
             <div>
-              <label className="block text-sm font-medium mb-2">
-                <Volume2 className="h-4 w-4 inline mr-1" />
-                Débit (L/min)
-              </label>
-              <input
+              <Label className="text-sm">Minutes</Label>
+              <Input
                 type="number"
-                value={manualStatus.volume}
-                onChange={(e) => setManualStatus(prev => ({ 
-                  ...prev, 
-                  volume: Math.max(1, parseInt(e.target.value) || 1)
-                }))}
-                disabled={manualStatus.isActive}
-                className="w-full px-3 py-2 border rounded-md"
-                min="1"
-                max="100"
+                min="0"
+                max="59"
+                value={manualDuration.minutes}
+                onChange={(e) => setManualDuration({ ...manualDuration, minutes: e.target.value })}
+                disabled={isManualActive || isLoading}
+                className="h-12 text-center text-lg"
               />
             </div>
           </div>
-
-          <div className="flex space-x-2">
-            <Button 
-              onClick={startManualIrrigation}
-              disabled={manualStatus.isActive}
-              size="sm"
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Play className="h-4 w-4" />
-              <span>Démarrer</span>
-            </Button>
-            
-            <Button 
-              onClick={stopManualIrrigation}
-              disabled={!manualStatus.isActive}
-              size="sm"
-              className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white"
-            >
-              <Square className="h-4 w-4" />
-              <span>Arrêter</span>
-            </Button>
-          </div>
-
-          {manualStatus.isActive && (
+          
+          {/* Informations estimées */}
+          {getTotalMinutes() > 0 && (
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between text-xs text-blue-600 mb-1">
-                <span>Temps écoulé: {(activeDuration / 60).toFixed(1)} min</span>
-                <span>
-                  {Math.round((activeDuration / 60 / manualStatus.duration) * 100)}% complété
-                </span>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700">⏱️ Durée totale:</span>
+                <span className="font-medium">{getTotalMinutes()} minutes</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
-                  style={{ 
-                    width: `${Math.min((activeDuration / 60 / manualStatus.duration) * 100, 100)}%` 
-                  }}
-                ></div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700">💧 Volume estimé:</span>
+                <span className="font-medium">{getEstimatedVolume()} m³</span>
               </div>
             </div>
           )}
+        </div>
 
-          <p className="text-sm text-gray-600">
-            Volume estimé: <strong>{(manualStatus.duration * manualStatus.volume / 1000).toFixed(3)} m³</strong>
-          </p>
-        </CardContent>
-      </Card>
+        <Separator />
 
-      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center space-x-2 text-blue-800">
-            <Bot className="h-5 w-5 text-blue-600" />
-            <span>Recommandation IA XGBoost</span>
-            <span className="text-sm font-normal text-blue-600">(Optionnelle)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/70 rounded-lg border border-blue-100">
+        {/* Contrôles d'irrigation */}
+        <div className="space-y-4">
+          <Label className="text-base font-medium">🎮 Contrôles</Label>
+          
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-4">
-              <div className="w-3 h-3 rounded-full bg-blue-400"></div>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                CONSEIL IA
-              </Badge>
-            </div>
-          </div>
-
-          <Button 
-            onClick={getMLRecommendation}
-            disabled={isLoadingRecommendation}
-            size="sm"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Lightbulb className="h-4 w-4 mr-2" />
-            {isLoadingRecommendation ? 'Analyse IA en cours...' : 'Obtenir Recommandation XGBoost'}
-          </Button>
-
-          {mlRecommendation && (
-            <div className="p-4 bg-white rounded-lg border border-blue-200 shadow-sm space-y-4">
-              <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                <Bot className="h-4 w-4 mr-2" />
-                Prédiction ML pour Arrosage Manuel
-              </h4>
+              <Button
+                onClick={handleManualIrrigation}
+                disabled={!isConnected || isLoading || (getTotalMinutes() === 0 && !isManualActive)}
+                variant={isManualActive ? "destructive" : "default"}
+                size="lg"
+                className={`flex items-center space-x-2 min-w-[160px] ${
+                  isManualActive 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : isManualActive ? (
+                  <PowerOff className="h-4 w-4" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+                <span>
+                  {isLoading ? 'En cours...' : isManualActive ? 'ARRÊTER' : 'DÉMARRER'}
+                </span>
+              </Button>
               
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div className="flex items-center space-x-2">
-                  <Droplets className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <p className="text-sm text-blue-700 font-medium">
-                      Durée suggérée
-                    </p>
-                    <p className="text-lg font-bold text-blue-800">
-                      {Math.floor(mlRecommendation.duree_minutes)} min
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Volume2 className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <p className="text-sm text-blue-700 font-medium">
-                      Volume suggéré
-                    </p>
-                    <p className="text-lg font-bold text-blue-800">
-                      {mlRecommendation.volume_eau_m3.toFixed(3)} m³
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {(() => {
-                const npkRecommendation = generateNPKRecommendation(mlRecommendation);
-                return (
-                  <div className="border-t border-blue-100 pt-4">
-                    <h5 className="font-semibold text-blue-800 mb-3 flex items-center">
-                      <Leaf className="h-4 w-4 mr-2" />
-                      Recommandations Nutriments NPK
-                    </h5>
-                    
-                    <div className="grid grid-cols-3 gap-3 mb-3">
-                      <div className="text-center p-2 bg-green-50 rounded border border-green-200">
-                        <p className="text-xs text-green-600 font-medium">Azote (N)</p>
-                        <p className="text-sm font-bold text-green-800">{npkRecommendation.azote}</p>
-                      </div>
-                      <div className="text-center p-2 bg-orange-50 rounded border border-orange-200">
-                        <p className="text-xs text-orange-600 font-medium">Phosphore (P)</p>
-                        <p className="text-sm font-bold text-orange-800">{npkRecommendation.phosphore}</p>
-                      </div>
-                      <div className="text-center p-2 bg-purple-50 rounded border border-purple-200">
-                        <p className="text-xs text-purple-600 font-medium">Potassium (K)</p>
-                        <p className="text-sm font-bold text-purple-800">{npkRecommendation.potassium}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="p-2 bg-blue-50 rounded border border-blue-100">
-                        <p className="text-xs text-blue-700 font-medium flex items-center">
-                          <TrendingUp className="h-3 w-3 mr-1" />
-                          Conseil NPK: {npkRecommendation.conseil}
-                        </p>
-                      </div>
-                      <div className="p-2 bg-green-50 rounded border border-green-100">
-                        <p className="text-xs text-green-700 font-medium">
-                          Action: {npkRecommendation.action}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-700 flex items-center">
-                  <Lightbulb className="h-3 w-3 mr-1" />
-                  <strong>Conseil IA :</strong> Recommandation basée sur 15 paramètres agro-climatiques
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Vous gardez le contrôle total - Appliquez selon votre jugement terrain
-                </p>
+              <div className="text-sm font-medium">
+                {isManualActive ? (
+                  <span className="text-red-600">🔴 Irrigation en cours</span>
+                ) : (
+                  <span className="text-gray-600">⚫ Irrigation arrêtée</span>
+                )}
               </div>
             </div>
-          )}
-
-          <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded border">
-            Intelligence artificielle optionnelle - Vos paramètres manuels restent prioritaires
+            
+            <div className="flex items-center space-x-2">
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                isManualActive ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {isManualActive ? 'ACTIF' : 'INACTIF'}
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          {/* Statut de connexion détaillé */}
+          <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+            <div className="flex items-center justify-between">
+              <span>🔗 Statut MQTT:</span>
+              <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
+                {isConnected ? '✅ Connecté au broker PulsarInfinite' : '❌ Déconnecté'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
-
-export default ManualIrrigationControl;
