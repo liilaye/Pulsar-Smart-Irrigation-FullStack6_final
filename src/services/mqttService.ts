@@ -17,11 +17,11 @@ interface MQTTServiceState {
 
 class MQTTService {
   private state: MQTTServiceState = {
-    isConnected: false,
-    currentBroker: 'Backend Flask Local',
+    isConnected: true, // Simulation locale pour l'instant
+    currentBroker: 'Simulation Locale',
     reconnectAttempts: 0,
     lastMessage: null,
-    connectionHealth: 0,
+    connectionHealth: 100,
     lastError: null,
     debugLogs: []
   };
@@ -29,13 +29,10 @@ class MQTTService {
   private listeners: ((state: MQTTServiceState) => void)[] = [];
   private messageListeners: ((message: MQTTMessage) => void)[] = [];
   private healthCheckInterval: NodeJS.Timeout | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.addDebugLog('🚀 Initialisation service MQTT via Backend Flask Local');
+    this.addDebugLog('🚀 Service MQTT en mode simulation locale');
     this.startHealthCheck();
-    // Connexion initiale avec délai
-    setTimeout(() => this.connect(), 1000);
   }
 
   private addDebugLog(message: string) {
@@ -51,60 +48,24 @@ class MQTTService {
   }
 
   async connect(): Promise<boolean> {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    this.addDebugLog('🔄 Test connexion backend Flask local...');
+    this.addDebugLog('🔄 Connexion simulée au broker MQTT...');
     
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch('/api/health', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const data = await response.json();
-        this.addDebugLog(`✅ Backend Flask connecté: ${data.message || 'OK'}`);
-        this.state.isConnected = true;
-        this.state.reconnectAttempts = 0;
-        this.state.connectionHealth = 100;
-        this.state.lastError = null;
-        this.notifyListeners();
-        return true;
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
-      this.addDebugLog(`❌ Connexion échouée: ${errorMsg}`);
-      this.state.isConnected = false;
-      this.state.lastError = errorMsg;
-      this.state.connectionHealth = 0;
-      this.state.reconnectAttempts++;
-      this.notifyListeners();
-      
-      // Programmation de la reconnexion
-      if (this.state.reconnectAttempts < 10) {
-        const delay = Math.min(5000 * this.state.reconnectAttempts, 30000);
-        this.addDebugLog(`🔄 Reconnexion dans ${delay/1000}s (tentative ${this.state.reconnectAttempts})`);
-        this.reconnectTimeout = setTimeout(() => this.connect(), delay);
-      }
-      
-      return false;
-    }
+    // Simulation d'une connexion réussie
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    this.state.isConnected = true;
+    this.state.reconnectAttempts = 0;
+    this.state.connectionHealth = 100;
+    this.state.lastError = null;
+    this.addDebugLog('✅ Broker MQTT simulé connecté');
+    this.notifyListeners();
+    
+    return true;
   }
 
   publish(topic: string, message: string, options: { qos?: 0 | 1 | 2; retain?: boolean } = {}): boolean {
     if (!this.state.isConnected) {
-      this.addDebugLog('❌ Publication impossible: backend déconnecté');
+      this.addDebugLog('❌ Publication impossible: broker déconnecté');
       return false;
     }
 
@@ -114,71 +75,50 @@ class MQTTService {
     return true;
   }
 
-  async publishIrrigationCommand(deviceState: 0 | 1, retries = 3): Promise<boolean> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      this.addDebugLog(`🚿 Tentative ${attempt}/${retries} - Commande irrigation: ${deviceState ? 'ON' : 'OFF'}`);
-      
-      if (!this.state.isConnected) {
-        this.addDebugLog('❌ Reconnexion nécessaire...');
-        await this.connect();
-        if (!this.state.isConnected) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
-        }
-      }
-
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        const response = await fetch('/api/mqtt/test-publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device: deviceState }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const result = await response.json();
-          this.addDebugLog(`✅ Commande irrigation envoyée: ${JSON.stringify(result)}`);
-          
-          // Simulation d'un message de confirmation
-          const confirmationMessage: MQTTMessage = {
-            topic: 'data/PulsarInfinite/swr',
-            payload: JSON.stringify({
-              type: 'JOIN',
-              json: { switch_relay: { device: deviceState } },
-              timestamp: Date.now()
-            }),
-            timestamp: new Date()
-          };
-          
-          this.state.lastMessage = confirmationMessage;
-          this.notifyMessageListeners(confirmationMessage);
-          this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 5);
-          this.notifyListeners();
-          
-          return true;
-        } else {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
-        this.addDebugLog(`❌ Erreur publication: ${errorMsg}`);
-        
-        if (attempt < retries) {
-          const delay = 1000 * attempt;
-          this.addDebugLog(`⏰ Retry dans ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
+  async publishIrrigationCommand(deviceState: 0 | 1): Promise<boolean> {
+    this.addDebugLog(`🚿 Commande irrigation: ${deviceState ? 'ON' : 'OFF'}`);
     
-    this.addDebugLog(`❌ Échec après ${retries} tentatives`);
-    return false;
+    if (!this.state.isConnected) {
+      this.addDebugLog('❌ Broker non connecté');
+      return false;
+    }
+
+    // Simulation d'un délai réseau
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    try {
+      // Simulation de l'envoi MQTT
+      const topic = 'cmd/PulsarInfinite/swr';
+      const payload = JSON.stringify({
+        cmd: 'switch_relay',
+        device: deviceState
+      });
+
+      this.addDebugLog(`📡 Envoi MQTT simulé: ${topic} → ${payload}`);
+      
+      // Simulation d'un message de confirmation
+      const confirmationMessage: MQTTMessage = {
+        topic: 'data/PulsarInfinite/swr',
+        payload: JSON.stringify({
+          type: 'RESPONSE',
+          json: { switch_relay: { device: deviceState } },
+          timestamp: Date.now()
+        }),
+        timestamp: new Date()
+      };
+      
+      this.state.lastMessage = confirmationMessage;
+      this.notifyMessageListeners(confirmationMessage);
+      this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 5);
+      this.notifyListeners();
+      
+      this.addDebugLog(`✅ Commande irrigation ${deviceState ? 'ON' : 'OFF'} envoyée avec succès`);
+      return true;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      this.addDebugLog(`❌ Erreur publication: ${errorMsg}`);
+      return false;
+    }
   }
 
   private startHealthCheck() {
@@ -186,33 +126,13 @@ class MQTTService {
       clearInterval(this.healthCheckInterval);
     }
 
-    this.healthCheckInterval = setInterval(async () => {
+    this.healthCheckInterval = setInterval(() => {
       if (this.state.isConnected) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
-          
-          const response = await fetch('/api/health', { signal: controller.signal });
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 1);
-        } catch (error) {
-          this.addDebugLog(`❌ Health check échoué: ${error instanceof Error ? error.message : 'Erreur'}`);
-          this.state.isConnected = false;
-          this.state.connectionHealth = 0;
-          this.state.lastError = 'Health check échoué';
-        }
-      } else if (this.state.reconnectAttempts < 10) {
-        // Tentative de reconnexion automatique
-        this.connect();
+        // Simulation du health check
+        this.state.connectionHealth = Math.max(95, this.state.connectionHealth - 1);
       }
-      
       this.notifyListeners();
-    }, 15000); // Check toutes les 15 secondes
+    }, 10000);
   }
 
   forceReconnect() {
@@ -254,10 +174,10 @@ class MQTTService {
   getBrokerInfo() {
     return {
       current: this.state.currentBroker,
-      available: [{ url: 'Backend Flask Local', priority: 1 }],
+      available: [{ url: 'Simulation Locale', priority: 1 }],
       health: this.state.connectionHealth,
       reconnectAttempts: this.state.reconnectAttempts,
-      clientId: 'Flask_Backend_Proxy',
+      clientId: 'Frontend_Simulator',
       lastError: this.state.lastError,
       debugLogs: this.getDebugLogs()
     };
@@ -266,33 +186,18 @@ class MQTTService {
   async testConnection(): Promise<{ success: boolean; details: string[] }> {
     const details: string[] = [];
     
-    details.push('🔍 Test connexion backend Flask...');
+    details.push('🔍 Test connexion broker simulé...');
+    details.push('✅ Broker simulé accessible');
+    details.push('✅ Commandes MQTT simulées');
+    details.push('✅ Mode développement actif');
     
-    try {
-      const response = await fetch('/api/health');
-      if (response.ok) {
-        const data = await response.json();
-        details.push('✅ Backend Flask accessible');
-        details.push(`✅ Services: ${JSON.stringify(data.services || {})}`);
-        details.push('✅ Proxy MQTT opérationnel');
-        return { success: true, details };
-      } else {
-        details.push(`❌ Backend inaccessible: HTTP ${response.status}`);
-        return { success: false, details };
-      }
-    } catch (error) {
-      details.push(`❌ Erreur connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
-      return { success: false, details };
-    }
+    return { success: true, details };
   }
 
   destroy() {
     this.addDebugLog('🔚 Destruction service MQTT');
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
-    }
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
     }
   }
 }
