@@ -242,7 +242,6 @@ export const AgroClimateParams = ({ onLocationChange }: AgroClimateParamsProps) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Recommendations selectedLocation={selectedLocation} />
         </CardContent>
       </Card>
     </div>
