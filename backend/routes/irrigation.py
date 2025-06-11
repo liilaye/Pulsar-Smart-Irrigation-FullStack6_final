@@ -4,7 +4,7 @@ from services.ml_service import ml_service
 from services.mqtt_service import mqtt_service
 from config.database import log_irrigation
 import datetime
-import numpy as np  # ← Ajout essentiel pour cast numpy float
+import numpy as np
 import threading
 import time
 
@@ -16,45 +16,84 @@ schedule_thread = None
 
 @irrigation_bp.route('/arroser', methods=['POST'])
 def arroser():
-    """Endpoint ML pour recommandations d'irrigation"""
+    """Endpoint ML pour recommandations d'irrigation - CORRIGÉ"""
     try:
         data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "Aucune donnée reçue"}), 400
+            
         features = data.get('features', [])
+        
+        if not features or len(features) != 15:
+            return jsonify({"error": "Exactement 15 paramètres requis pour le modèle ML"}), 400
 
-        print(f"Requête ML reçue avec features: {features}")
+        print(f"✅ Requête ML reçue avec features: {features}")
 
-        # ✅ Conversion explicite en float numpy array
+        # Conversion explicite en float
         try:
-            features_array = np.array(features, dtype=float)
+            features_array = [float(f) for f in features]
         except Exception as conv_err:
-            print(f"❌ Erreur de conversion features en float: {conv_err}")
-            return jsonify({"error": "Les paramètres fournis ne sont pas valides (doivent être numériques)."}), 400
+            print(f"❌ Erreur conversion features: {conv_err}")
+            return jsonify({"error": "Les paramètres doivent être numériques"}), 400
 
-        # Appel du service ML avec tableau typé
-        prediction = ml_service.predict_irrigation(features_array.tolist())
-
-        if prediction:
-            log_irrigation(
-                action='ml',
-                duration_minutes=prediction['duree_minutes'],
-                volume_m3=prediction['volume_eau_m3'],
-                mqtt_status='ok',
-                source='ML'
-            )
-            print(f"✅ Prédiction ML: {prediction}")
-            return jsonify({
-                "duree_minutes": prediction['duree_minutes'],
-                "volume_eau_m3": prediction['volume_eau_m3'],
-                "status": "ok",
-                "matt": f"Irrigation ML recommandée: {prediction['duree_minutes']:.1f} min pour {prediction['volume_eau_m3']:.3f} m³"
-            })
-        else:
-            return jsonify({"error": "Erreur dans la prédiction ML"}), 500
+        # Appel du service ML
+        try:
+            prediction = ml_service.predict_irrigation(features_array)
+            
+            if prediction and 'volume_m3' in prediction:
+                # Log de l'irrigation ML
+                log_irrigation(
+                    action='ml_prediction',
+                    duration_minutes=prediction['duree_minutes'],
+                    volume_m3=prediction['volume_m3'],
+                    mqtt_status='prediction_ok',
+                    source='ML'
+                )
+                
+                print(f"✅ Prédiction ML réussie: {prediction}")
+                
+                # Format de réponse cohérent avec l'arrosage manuel
+                return jsonify({
+                    "duree_minutes": float(prediction['duree_minutes']),
+                    "volume_eau_m3": float(prediction['volume_m3']),
+                    "status": "ok",
+                    "matt": f"Irrigation ML recommandée: {prediction['duree_minutes']:.1f} min pour {prediction['volume_m3']:.3f} m³"
+                }), 200
+            else:
+                return jsonify({"error": "Prédiction ML invalide", "status": "error"}), 500
+                
+        except Exception as ml_err:
+            print(f"❌ Erreur ML Service: {ml_err}")
+            return jsonify({"error": f"Erreur modèle ML: {str(ml_err)}", "status": "error"}), 500
 
     except Exception as e:
-        print(f"❌ Erreur endpoint /arroser: {e}")
-        return jsonify({"error": f"Erreur prédiction ML: {str(e)}"}), 500
+        print(f"❌ Erreur générale endpoint /arroser: {e}")
+        return jsonify({"error": f"Erreur serveur: {str(e)}", "status": "error"}), 500
 
+
+@irrigation_bp.route('/irrigation/status', methods=['GET'])
+def get_irrigation_status():
+    """Retourne l'état de l'irrigation - CORRIGÉ"""
+    try:
+        # Format de réponse JSON valide
+        status = {
+            "isActive": False,
+            "lastMLRecommendation": None,
+            "backend_connected": True,
+            "mqtt_connected": True,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+        print(f"ℹ️ Statut irrigation demandé: {status}")
+        return jsonify(status), 200
+        
+    except Exception as e:
+        print(f"❌ Erreur statut irrigation: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+
+# ... keep existing code (irrigation/schedule endpoints)
 
 @irrigation_bp.route('/irrigation/schedule', methods=['POST'])
 def receive_schedule():
@@ -82,7 +121,7 @@ def receive_schedule():
                     analyzed_schedules[day] = {
                         **schedule,
                         'ai_duration_minutes': prediction['duree_minutes'],
-                        'ai_volume_m3': prediction['volume_eau_m3'],
+                        'ai_volume_m3': prediction['volume_m3'],
                         'ai_optimized': True
                     }
                     print(f"✅ Planning {day} optimisé par IA: {prediction['duree_minutes']:.1f} min")
@@ -116,7 +155,7 @@ def receive_schedule():
             "success": True,
             "message": "Planning reçu et optimisé par IA",
             "analyzed_schedules": analyzed_schedules
-        })
+        }), 200
         
     except Exception as e:
         print(f"❌ Erreur traitement planning: {e}")
@@ -130,7 +169,7 @@ def monitor_schedules():
     while True:
         try:
             current_time = datetime.datetime.now()
-            current_day = current_time.strftime('%A')  # Jour en anglais
+            current_day = current_time.strftime('%A')
             current_hour_min = current_time.strftime('%H:%M')
             
             # Mapper les jours français vers anglais
@@ -152,7 +191,7 @@ def monitor_schedules():
                     volume_m3 = schedule.get('ai_volume_m3', 0.6)
                     duration_seconds = int(duration_minutes * 60)
                     
-                    # Démarrer l'irrigation via MQTT
+                    # Démarrer l'irrigation via MQTT (comme arrosage manuel)
                     success, message = mqtt_service.demarrer_arrosage_async(
                         duration_seconds, volume_m3, 'SCHEDULE_AI'
                     )
@@ -185,13 +224,11 @@ def get_schedule_status():
             "active_schedules": active_schedules,
             "monitoring_active": schedule_thread is not None and schedule_thread.is_alive(),
             "current_time": datetime.datetime.now().isoformat()
-        })
+        }), 200
     except Exception as e:
         print(f"❌ Erreur statut planning: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-# ... keep existing code (autres endpoints comme log_manual_irrigation, start_manual_irrigation, etc)
 
 @irrigation_bp.route('/irrigation/log-manual', methods=['POST'])
 def log_manual_irrigation():
@@ -210,7 +247,7 @@ def log_manual_irrigation():
             source='MANUAL_DIRECT'
         )
 
-        return jsonify({"success": True, "message": "Irrigation manuelle loggée"})
+        return jsonify({"success": True, "message": "Irrigation manuelle loggée"}), 200
     except Exception as e:
         print(f"❌ Erreur log irrigation manuelle: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
@@ -221,7 +258,7 @@ def start_manual_irrigation():
     try:
         print(f"⚠️ Legacy endpoint - Redirection vers MQTT direct recommandée")
         result = {"success": True, "message": "Legacy endpoint - utiliser MQTT direct"}
-        return jsonify(result)
+        return jsonify(result), 200
     except Exception as e:
         print(f"❌ Erreur irrigation manuelle legacy: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
@@ -232,21 +269,10 @@ def stop_irrigation():
     try:
         print("⏹️ Arrêt irrigation demandé")
         result = {"success": True, "message": "Irrigation arrêtée"}
-        return jsonify(result)
+        return jsonify(result), 200
     except Exception as e:
         print(f"❌ Erreur arrêt irrigation: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
-
-
-@irrigation_bp.route('/irrigation/status', methods=['GET'])
-def get_irrigation_status():
-    try:
-        status = {"isActive": False, "lastMLRecommendation": None}
-        print(f"ℹ️ Statut irrigation demandé: {status}")
-        return jsonify(status)
-    except Exception as e:
-        print(f"❌ Erreur statut irrigation: {e}")
-        return jsonify({"error": str(e)}), 500
 
 
 @irrigation_bp.route('/analytics/trends', methods=['GET'])
@@ -259,7 +285,7 @@ def get_trends():
             "trend": "stable"
         }
         print(f"📊 Tendances calculées: {trends}")
-        return jsonify(trends)
+        return jsonify(trends), 200
     except Exception as e:
         print(f"❌ Erreur trends: {e}")
         return jsonify({"error": str(e)}), 500
@@ -275,7 +301,7 @@ def get_ml_predictions():
             "weatherImpact": "Favorable"
         }
         print(f"🧠 Prédictions ML: {predictions}")
-        return jsonify(predictions)
+        return jsonify(predictions), 200
     except Exception as e:
         print(f"❌ Erreur ML predictions: {e}")
         return jsonify({"error": str(e)}), 500
