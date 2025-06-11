@@ -55,7 +55,7 @@ class BackendService {
 
     try {
       const fullUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url.startsWith('/') ? url : `/${url}`}`;
-      console.log(`🔄 Requête vers: ${fullUrl}`);
+      console.log(`🔄 Requête vers Backend Flask: ${fullUrl}`);
       
       const response = await fetch(fullUrl, {
         ...options,
@@ -67,13 +67,14 @@ class BackendService {
       });
 
       clearTimeout(timeoutId);
-      console.log(`✅ Réponse reçue: ${response.status} ${response.statusText}`);
+      console.log(`✅ Réponse Backend Flask: ${response.status} ${response.statusText}`);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Timeout: Le serveur Flask ne répond pas (15s)');
       }
+      console.error('❌ Erreur requête Backend Flask:', error);
       throw error;
     }
   }
@@ -88,6 +89,112 @@ class BackendService {
     } catch (error) {
       console.error('❌ Test connexion Flask échoué:', error);
       return false;
+    }
+  }
+
+  async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
+    try {
+      console.log('🚿 Démarrage irrigation manuelle via Flask...');
+      const response = await this.makeRequest('/irrigation/manual', {
+        method: 'POST',
+        body: JSON.stringify({
+          durationHours,
+          durationMinutes,
+          scheduledBy: 'MANUAL',
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Réponse irrigation manuelle Flask:', data);
+
+      if (data.success) {
+        const totalMinutes = (durationHours * 60) + durationMinutes;
+        const estimatedVolume = (totalMinutes * 20) / 1000;
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
+          volume_m3: estimatedVolume,
+          duree_minutes: totalMinutes,
+          source: 'manual',
+          type: 'manual'
+        });
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur irrigation manuelle Flask:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      return { success: false, message: `Erreur Backend Flask: ${errorMessage}` };
+    }
+  }
+
+  async arroserAvecML(features: number[]): Promise<MLPrediction> {
+    try {
+      console.log('🤖 Envoi requête ML vers Flask backend...');
+      console.log('📊 Features (15 valeurs):', features);
+      
+      const response = await this.makeRequest('/arroser', {
+        method: 'POST',
+        body: JSON.stringify({ features })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Réponse ML Flask reçue:', data);
+
+      if (data.status === 'ok') {
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
+          volume_m3: data.volume_eau_m3,
+          duree_minutes: data.duree_minutes,
+          source: 'ml',
+          type: 'ml'
+        });
+        
+        if (data.auto_irrigation && data.mqtt_started) {
+          console.log('🚿 IRRIGATION ML AUTO DÉMARRÉE ! Durée:', data.duree_minutes, 'min');
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur requête ML Flask:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur ML Backend Flask: ${errorMessage}`);
+    }
+  }
+
+  async stopIrrigation(): Promise<BackendResponse> {
+    try {
+      console.log('⏹️ Arrêt irrigation via Flask...');
+      const response = await this.makeRequest('/irrigation/stop', {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Réponse arrêt irrigation Flask:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur arrêt irrigation Flask:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      return { success: false, message: `Erreur Backend Flask: ${errorMessage}` };
     }
   }
 
@@ -111,130 +218,6 @@ class BackendService {
     } catch (error) {
       console.error('❌ Erreur requête MQTT Flask:', error);
       return { success: false, message: `Erreur de connexion: ${error}` };
-    }
-  }
-
-  async arroserAvecML(features: number[]): Promise<MLPrediction> {
-    try {
-      console.log('🤖 Envoi des features pour arrosage IA (ML) AUTO vers Flask...');
-      console.log('📊 Features (tableau ordonné):', features);
-      const response = await this.makeRequest('/arroser', {
-        method: 'POST',
-        body: JSON.stringify({ features })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Recommandation IA + MQTT AUTO reçue depuis Flask:', data);
-
-      if (data.status === 'ok') {
-        irrigationDataService.addIrrigation({
-          timestamp: new Date(),
-          volume_m3: data.volume_eau_m3,
-          duree_minutes: data.duree_minutes,
-          source: 'ml',
-          type: 'ml'
-        });
-        
-        // 🚀 Log spécial pour irrigation automatique ML
-        if (data.auto_irrigation && data.mqtt_started) {
-          console.log('🚿 IRRIGATION ML AUTO DÉMARRÉE ! Durée:', data.duree_minutes, 'min');
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error('❌ Erreur lors de la requête ML AUTO:', error);
-      throw error;
-    }
-  }
-
-  async getMLRecommendation(soilClimateFeatures: number[]): Promise<MLPrediction | null> {
-    try {
-      console.log('🤖 Envoi requête ML vers Flask backend...');
-      console.log('📊 Features envoyées:', soilClimateFeatures);
-      const response = await this.makeRequest('/arroser', {
-        method: 'POST',
-        body: JSON.stringify({
-          features: soilClimateFeatures
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Réponse ML Flask reçue:', data);
-
-      if (data.status === 'ok') {
-        irrigationDataService.addIrrigation({
-          timestamp: new Date(),
-          volume_m3: data.volume_eau_m3,
-          duree_minutes: data.duree_minutes,
-          source: 'ml',
-          type: 'ml'
-        });
-      }
-
-      return data;
-    } catch (error) {
-      console.error('❌ Erreur requête ML Flask:', error);
-      throw error;
-    }
-  }
-
-  async startManualIrrigation(durationHours: number, durationMinutes: number): Promise<BackendResponse> {
-    try {
-      console.log('🚿 Démarrage irrigation manuelle via Flask...');
-      const response = await this.makeRequest('/irrigation/manual', {
-        method: 'POST',
-        body: JSON.stringify({
-          durationHours,
-          durationMinutes,
-          scheduledBy: 'MANUAL',
-          timestamp: new Date().toISOString()
-        }),
-      });
-
-      const data = await response.json();
-      console.log('✅ Réponse irrigation manuelle Flask:', data);
-
-      if (data.success) {
-        const totalMinutes = (durationHours * 60) + durationMinutes;
-        const estimatedVolume = (totalMinutes * 20) / 1000;
-        irrigationDataService.addIrrigation({
-          timestamp: new Date(),
-          volume_m3: estimatedVolume,
-          duree_minutes: totalMinutes,
-          source: 'manual',
-          type: 'manual'
-        });
-      }
-
-      return data;
-    } catch (error) {
-      console.error('❌ Erreur irrigation manuelle Flask:', error);
-      return { success: false, message: `Erreur de connexion: ${error}` };
-    }
-  }
-
-  async stopIrrigation(): Promise<BackendResponse> {
-    try {
-      console.log('⏹️ Arrêt irrigation via Flask...');
-      const response = await this.makeRequest('/irrigation/stop', {
-        method: 'POST'
-      });
-
-      const data = await response.json();
-      console.log('✅ Réponse arrêt irrigation Flask:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Erreur arrêt irrigation Flask:', error);
-      return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
@@ -369,7 +352,7 @@ class BackendService {
       };
     }
   }
-
+  
   getDefaultSoilClimateFeatures(): number[] {
     // ✅ CORRECTION: Retourner un tableau ordonné de 15 valeurs
     return [

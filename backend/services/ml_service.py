@@ -34,10 +34,16 @@ class MLService:
             if not isinstance(features_data, list) or len(features_data) != 15:
                 raise ValueError(f"Exactement 15 features requises, reçu: {len(features_data) if isinstance(features_data, list) else 'non-liste'}")
             
-            # ✅ CORRECTION: Conversion stricte en float64 pour éviter l'erreur NumPy isnan
+            # ✅ CORRECTION FINALE: Conversion directe sans validation isnan problématique
             try:
                 features_array = np.array([float(f) for f in features_data], dtype=np.float64)
                 print(f"🔧 Features converties en float64: {features_array}")
+                
+                # Validation manuelle simple sans NumPy isnan
+                for i, val in enumerate(features_array):
+                    if val != val:  # Test NaN simple (NaN != NaN)
+                        raise ValueError(f"Feature {i} est NaN")
+                        
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Toutes les features doivent être numériques: {e}")
             
@@ -52,22 +58,17 @@ class MLService:
                         "Fertilité_(score)", "Type_sol"
                     ]
                     
-                    # ✅ CORRECTION: Créer DataFrame avec dtype explicit float64
-                    features_df = pd.DataFrame([features_array], columns=columns, dtype=np.float64)
+                    # Créer DataFrame avec conversion sûre
+                    features_df = pd.DataFrame([features_array], columns=columns)
                     
-                    # Vérifier qu'il n'y a pas de NaN
-                    if features_df.isnull().any().any():
-                        print("⚠️ NaN détectés dans les features, utilisation du fallback")
+                    # Prédiction avec gestion d'erreur
+                    try:
+                        volume_m3_raw = self.model.predict(features_df)[0]
+                        volume_m3 = max(0.001, float(volume_m3_raw))  # Minimum 1L
+                        print(f"✅ Prédiction ML avec modèle: {volume_m3:.3f} m³")
+                    except Exception as numpy_error:
+                        print(f"⚠️ Erreur modèle, utilisation du fallback: {numpy_error}")
                         volume_m3 = self._calculate_fallback_volume(features_array)
-                    else:
-                        # Prédiction avec gestion d'erreur NumPy
-                        try:
-                            volume_m3_raw = self.model.predict(features_df)[0]
-                            volume_m3 = max(0.001, float(volume_m3_raw))  # Minimum 1L
-                            print(f"✅ Prédiction ML avec modèle: {volume_m3:.3f} m³")
-                        except Exception as numpy_error:
-                            print(f"⚠️ Erreur NumPy/XGBoost: {numpy_error}")
-                            volume_m3 = self._calculate_fallback_volume(features_array)
                     
                 except Exception as model_error:
                     print(f"⚠️ Erreur avec le modèle, utilisation du fallback: {model_error}")
@@ -105,7 +106,7 @@ class MLService:
             humidite_sol = float(features[7])  # Humidité_sol_(%)
             
             # Calcul simple basé sur les conditions
-            base_volume = 0.3  # Volume de base en m³
+            base_volume = 0.4  # Volume de base en m³ (400L)
             
             # Ajustements selon conditions
             if temp_air > 30:
@@ -117,11 +118,11 @@ class MLService:
             if perimetre > 5000:
                 base_volume += 0.1  # Grande surface = plus d'eau
                 
-            return max(0.2, min(2.0, base_volume))  # Entre 200L et 2000L
+            return max(0.3, min(2.0, base_volume))  # Entre 300L et 2000L
             
         except Exception as e:
             print(f"⚠️ Erreur calcul fallback: {e}")
-            return 0.6  # Valeur par défaut: 600L
+            return 0.4  # Valeur par défaut: 400L
 
 # Instance globale
 ml_service = MLService()
