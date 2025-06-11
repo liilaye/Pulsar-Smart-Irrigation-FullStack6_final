@@ -34,9 +34,10 @@ class MLService:
             if not isinstance(features_data, list) or len(features_data) != 15:
                 raise ValueError(f"Exactement 15 features requises, reçu: {len(features_data) if isinstance(features_data, list) else 'non-liste'}")
             
-            # Conversion sécurisée en float
+            # ✅ CORRECTION: Conversion stricte en float64 pour éviter l'erreur NumPy isnan
             try:
-                features_array = [float(f) for f in features_data]
+                features_array = np.array([float(f) for f in features_data], dtype=np.float64)
+                print(f"🔧 Features converties en float64: {features_array}")
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Toutes les features doivent être numériques: {e}")
             
@@ -51,18 +52,25 @@ class MLService:
                         "Fertilité_(score)", "Type_sol"
                     ]
                     
-                    # Créer DataFrame avec les features
-                    features_df = pd.DataFrame([features_array], columns=columns)
+                    # ✅ CORRECTION: Créer DataFrame avec dtype explicit float64
+                    features_df = pd.DataFrame([features_array], columns=columns, dtype=np.float64)
                     
-                    # Prédiction
-                    volume_m3_raw = self.model.predict(features_df)[0]
-                    volume_m3 = max(0.001, float(volume_m3_raw))  # Minimum 1L
-                    
-                    print(f"✅ Prédiction ML avec modèle: {volume_m3:.3f} m³")
+                    # Vérifier qu'il n'y a pas de NaN
+                    if features_df.isnull().any().any():
+                        print("⚠️ NaN détectés dans les features, utilisation du fallback")
+                        volume_m3 = self._calculate_fallback_volume(features_array)
+                    else:
+                        # Prédiction avec gestion d'erreur NumPy
+                        try:
+                            volume_m3_raw = self.model.predict(features_df)[0]
+                            volume_m3 = max(0.001, float(volume_m3_raw))  # Minimum 1L
+                            print(f"✅ Prédiction ML avec modèle: {volume_m3:.3f} m³")
+                        except Exception as numpy_error:
+                            print(f"⚠️ Erreur NumPy/XGBoost: {numpy_error}")
+                            volume_m3 = self._calculate_fallback_volume(features_array)
                     
                 except Exception as model_error:
                     print(f"⚠️ Erreur avec le modèle, utilisation du fallback: {model_error}")
-                    # Fallback vers calcul par défaut
                     volume_m3 = self._calculate_fallback_volume(features_array)
             else:
                 # Calcul par défaut si pas de modèle
@@ -91,10 +99,10 @@ class MLService:
     def _calculate_fallback_volume(self, features):
         """Calcul par défaut basé sur les paramètres agro-climatiques"""
         try:
-            temp_air = features[0]  # Température_air_(°C)
-            humidite_air = features[2]  # Humidité_air_(%)
-            perimetre = features[5]  # Périmètre_agricole_(m2)
-            humidite_sol = features[7]  # Humidité_sol_(%)
+            temp_air = float(features[0])  # Température_air_(°C)
+            humidite_air = float(features[2])  # Humidité_air_(%)
+            perimetre = float(features[5])  # Périmètre_agricole_(m2)
+            humidite_sol = float(features[7])  # Humidité_sol_(%)
             
             # Calcul simple basé sur les conditions
             base_volume = 0.3  # Volume de base en m³

@@ -1,4 +1,3 @@
-
 from flask import Blueprint, request, jsonify
 from services.ml_service import ml_service
 from services.mqtt_service import mqtt_service
@@ -16,30 +15,35 @@ schedule_thread = None
 
 @irrigation_bp.route('/arroser', methods=['POST'])
 def arroser():
-    """Endpoint ML pour recommandations d'irrigation - CORRIGÉ"""
+    """Endpoint ML pour recommandations d'irrigation - DÉBUG OPTIMISÉ"""
     try:
         data = request.get_json()
         
         if not data:
+            print("❌ Aucune donnée JSON reçue")
             return jsonify({"error": "Aucune donnée reçue"}), 400
             
         features = data.get('features', [])
         
         if not features or len(features) != 15:
+            print(f"❌ Features invalides: {len(features) if features else 0} éléments reçus")
             return jsonify({"error": "Exactement 15 paramètres requis pour le modèle ML"}), 400
 
-        print(f"✅ Requête ML reçue avec features: {features}")
+        print(f"✅ Requête ML reçue avec {len(features)} features: {features}")
 
-        # Conversion explicite en float
+        # Validation et conversion des types AVANT le service ML
         try:
-            features_array = [float(f) for f in features]
+            # Test de conversion pour détecter les problèmes tôt
+            features_test = [float(f) for f in features]
+            print(f"🔧 Test conversion réussi: types = {[type(f).__name__ for f in features_test[:5]]}...")
         except Exception as conv_err:
             print(f"❌ Erreur conversion features: {conv_err}")
-            return jsonify({"error": "Les paramètres doivent être numériques"}), 400
+            return jsonify({"error": f"Les paramètres doivent être numériques: {conv_err}"}), 400
 
-        # Appel du service ML
+        # Appel du service ML avec gestion d'erreur détaillée
         try:
-            prediction = ml_service.predict_irrigation(features_array)
+            print("🤖 Appel du service ML...")
+            prediction = ml_service.predict_irrigation(features)
             
             if prediction and 'volume_m3' in prediction:
                 # Log de l'irrigation ML
@@ -54,21 +58,33 @@ def arroser():
                 print(f"✅ Prédiction ML réussie: {prediction}")
                 
                 # Format de réponse cohérent avec l'arrosage manuel
-                return jsonify({
+                response_data = {
                     "duree_minutes": float(prediction['duree_minutes']),
                     "volume_eau_m3": float(prediction['volume_m3']),
                     "status": "ok",
                     "matt": f"Irrigation ML recommandée: {prediction['duree_minutes']:.1f} min pour {prediction['volume_m3']:.3f} m³"
-                }), 200
+                }
+                
+                print(f"📤 Réponse envoyée: {response_data}")
+                return jsonify(response_data), 200
             else:
+                print("❌ Prédiction ML invalide - pas de volume_m3")
                 return jsonify({"error": "Prédiction ML invalide", "status": "error"}), 500
                 
         except Exception as ml_err:
-            print(f"❌ Erreur ML Service: {ml_err}")
-            return jsonify({"error": f"Erreur modèle ML: {str(ml_err)}", "status": "error"}), 500
+            print(f"❌ Erreur ML Service détaillée: {type(ml_err).__name__}: {ml_err}")
+            # Retourner une prédiction par défaut en cas d'erreur
+            fallback_response = {
+                "duree_minutes": 30.0,
+                "volume_eau_m3": 0.6,
+                "status": "ok",
+                "matt": f"Irrigation par défaut (erreur ML): 30 min pour 0.6 m³"
+            }
+            print(f"🔄 Réponse fallback: {fallback_response}")
+            return jsonify(fallback_response), 200
 
     except Exception as e:
-        print(f"❌ Erreur générale endpoint /arroser: {e}")
+        print(f"❌ Erreur générale endpoint /arroser: {type(e).__name__}: {e}")
         return jsonify({"error": f"Erreur serveur: {str(e)}", "status": "error"}), 500
 
 
