@@ -225,11 +225,8 @@ class BackendService {
   async stopIrrigation(): Promise<BackendResponse> {
     try {
       console.log('⏹️ Arrêt irrigation via Flask...');
-      const response = await fetch(`${this.getBaseUrl()}/irrigation/stop`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+      const response = await this.makeRequest('/irrigation/stop', {
+        method: 'POST'
       });
 
       const data = await response.json();
@@ -244,11 +241,8 @@ class BackendService {
   async sendMQTTCommand(device: 0 | 1): Promise<BackendResponse> {
     try {
       console.log(`📡 Envoi commande MQTT via Flask: device=${device}`);
-      const response = await fetch(`${this.getBaseUrl()}/mqtt/command`, {
+      const response = await this.makeRequest('/mqtt/command', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ device })
       });
 
@@ -256,18 +250,36 @@ class BackendService {
       console.log('Réponse commande MQTT Flask:', data);
       return data;
     } catch (error) {
-      console.error(' Erreur commande MQTT Flask:', error);
+      console.error('❌ Erreur commande MQTT Flask:', error);
       return { success: false, message: 'Erreur de connexion au backend Flask' };
     }
   }
 
   async getIrrigationStatus(): Promise<any> {
     try {
-      const response = await fetch(`${this.getBaseUrl()}/irrigation/status`);
-      const data = await response.json();
-      return data;
+      const response = await this.makeRequest('/irrigation/status');
+      
+      if (!response.ok) {
+        console.error(`❌ Erreur HTTP ${response.status} lors de la récupération du statut`);
+        return null;
+      }
+
+      // Vérifier si la réponse contient du JSON valide
+      const text = await response.text();
+      if (!text.trim()) {
+        console.error('❌ Réponse vide du serveur');
+        return null;
+      }
+
+      try {
+        const data = JSON.parse(text);
+        return data;
+      } catch (parseError) {
+        console.error('❌ Erreur parsing JSON:', parseError, 'Réponse:', text);
+        return null;
+      }
     } catch (error) {
-      console.error('Erreur statut irrigation Flask:', error);
+      console.error('❌ Erreur statut irrigation Flask:', error);
       return null;
     }
   }
@@ -381,3 +393,5 @@ class BackendService {
 }
 
 export const backendService = new BackendService();
+
+}

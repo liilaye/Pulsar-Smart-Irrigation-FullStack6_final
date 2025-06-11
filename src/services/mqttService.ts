@@ -1,3 +1,4 @@
+
 interface MQTTMessage {
   topic: string;
   payload: string;
@@ -133,7 +134,13 @@ class MQTTService {
           
           return true;
         } else {
-          const error = await response.text();
+          let error = 'Erreur inconnue';
+          try {
+            const text = await response.text();
+            error = text || `HTTP ${response.status}`;
+          } catch (e) {
+            error = `HTTP ${response.status}`;
+          }
           this.addDebugLog(`❌ Erreur backend local: ${error}`);
         }
       } catch (error) {
@@ -147,7 +154,7 @@ class MQTTService {
       }
     }
     
-    this.addDebugLog(`❌ Échec après ${retries} tentatives`);
+    this.addDebugLog(`❌ Échec après ${retries} tentatives - Commande MQTT non envoyée`);
     return false;
   }
 
@@ -168,6 +175,10 @@ class MQTTService {
           this.state.connectionHealth = 0;
           this.addDebugLog(`❌ Erreur health check local: ${error}`);
         }
+      } else {
+        // Tentative de reconnexion automatique
+        this.addDebugLog('🔄 Tentative de reconnexion automatique...');
+        await this.connect();
       }
       
       this.notifyListeners();
