@@ -1,4 +1,3 @@
-
 import mqtt from 'mqtt';
 
 interface MQTTMessage {
@@ -32,18 +31,17 @@ class MQTTService {
     connectTimeout: 15000,
     keepalive: 60,
     clean: true,
-    reconnectPeriod: 5000, // Reconnexion automatique toutes les 5 secondes
+    reconnectPeriod: 5000,
     will: {
       topic: 'data/PulsarInfinite/status',
       payload: JSON.stringify({ device: 'disconnected', timestamp: Date.now() }),
       qos: 1,
       retain: true
     },
-    // Options avancées selon la doc MQTT.js
     resubscribe: true,
     queueQoSZero: false,
     properties: {
-      sessionExpiryInterval: 300, // 5 minutes
+      sessionExpiryInterval: 300,
       receiveMaximum: 100,
       maximumPacketSize: 65535
     }
@@ -60,16 +58,13 @@ class MQTTService {
   async connect(): Promise<boolean> {
     console.log(`🔄 Connexion au broker PulsarInfinite: ${this.BROKER_URL}`);
 
-    // Nettoyer la connexion précédente
     this.cleanup();
 
     try {
-      // Créer le client MQTT avec les options recommandées
       this.client = mqtt.connect(this.BROKER_URL, this.CLIENT_OPTIONS);
       this.state.currentBroker = this.BROKER_URL;
       this.state.reconnectAttempts++;
 
-      // Event handlers selon la documentation MQTT.js
       this.client.on('connect', (connack) => {
         console.log(`✅ Connecté au broker PulsarInfinite:`, connack);
         this.state.isConnected = true;
@@ -77,10 +72,7 @@ class MQTTService {
         this.state.connectionHealth = 100;
         this.notifyListeners();
 
-        // S'abonner aux topics essentiels
         this.subscribeToTopics();
-        
-        // Publier un message de présence
         this.publishPresence();
       });
 
@@ -123,7 +115,6 @@ class MQTTService {
         this.notifyListeners();
       });
 
-      // Event pour le debugging avancé
       this.client.on('disconnect', (packet) => {
         console.log('🔌 Déconnexion MQTT:', packet);
       });
@@ -153,8 +144,8 @@ class MQTTService {
       'data/PulsarInfinite/logs'
     ];
 
-    // S'abonner à tous les topics en une fois (plus efficace)
-    const topicObject: { [key: string]: mqtt.QoS } = {};
+    // Utiliser les QoS comme nombres (0, 1, 2) directement
+    const topicObject: { [key: string]: 0 | 1 | 2 } = {};
     topics.forEach(topic => {
       topicObject[topic] = 1;
     });
@@ -204,7 +195,6 @@ class MQTTService {
     return true;
   }
 
-  // Commande d'irrigation avec retry et timeout
   async publishIrrigationCommand(deviceState: 0 | 1, retries = 3): Promise<boolean> {
     const payload = {
       type: "JOIN",
@@ -238,7 +228,6 @@ class MQTTService {
       const success = this.publish('data/PulsarInfinite/swr', JSON.stringify(payload), { qos: 1, retain: true });
       
       if (success) {
-        // Attendre une confirmation
         const confirmed = await this.waitForConfirmation(deviceState, 8000);
         if (confirmed) {
           return true;
@@ -264,7 +253,6 @@ class MQTTService {
         try {
           const data = JSON.parse(message.payload);
           
-          // Vérifier différents formats de réponse
           const irrigationActive = 
             data.irrigation === (expectedState === 1) ||
             data.json?.switch_relay?.device === expectedState ||
@@ -282,7 +270,6 @@ class MQTTService {
 
       this.messageListeners.push(messageListener);
       
-      // Nettoyer le listener après le timeout
       setTimeout(() => {
         const index = this.messageListeners.indexOf(messageListener);
         if (index > -1) {
@@ -295,14 +282,12 @@ class MQTTService {
   private startHealthCheck() {
     this.healthCheckInterval = setInterval(() => {
       if (this.state.isConnected && this.client) {
-        // Ping test pour vérifier la connexion
         this.publish('data/PulsarInfinite/ping', JSON.stringify({
           timestamp: Date.now(),
           type: 'healthcheck',
           client_id: this.CLIENT_OPTIONS.clientId
         }), { qos: 0 });
 
-        // Diminuer la santé si pas de messages récents
         if (this.state.lastMessage && 
             Date.now() - this.state.lastMessage.timestamp.getTime() > 30000) {
           this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 3);
@@ -312,7 +297,7 @@ class MQTTService {
       }
       
       this.notifyListeners();
-    }, 15000); // Toutes les 15 secondes
+    }, 15000);
   }
 
   private cleanup() {
@@ -329,7 +314,6 @@ class MQTTService {
     this.state.isConnected = false;
   }
 
-  // Force reconnection (pour le bouton Retry)
   forceReconnect() {
     console.log('🔄 Reconnexion forcée demandée');
     this.cleanup();
@@ -362,11 +346,10 @@ class MQTTService {
     this.messageListeners.forEach(listener => listener(message));
   }
 
-  // Informations de debugging
   getBrokerInfo() {
     return {
       current: this.state.currentBroker,
-      available: [{ url: this.BROKER_URL, priority: 1 }], // Un seul broker
+      available: [{ url: this.BROKER_URL, priority: 1 }],
       health: this.state.connectionHealth,
       reconnectAttempts: this.state.reconnectAttempts,
       clientId: this.CLIENT_OPTIONS.clientId
