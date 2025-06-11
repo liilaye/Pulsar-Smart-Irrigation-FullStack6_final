@@ -11,6 +11,9 @@ export interface MLPrediction {
   volume_eau_m3: number;
   matt: string;
   status: string;
+  mqtt_started?: boolean;
+  mqtt_message?: string;
+  auto_irrigation?: boolean;
 }
 
 export interface BackendResponse {
@@ -113,7 +116,7 @@ class BackendService {
 
   async arroserAvecML(features: number[]): Promise<MLPrediction> {
     try {
-      console.log('🤖 Envoi des features pour arrosage IA (ML) vers Flask...');
+      console.log('🤖 Envoi des features pour arrosage IA (ML) AUTO vers Flask...');
       console.log('📊 Features (tableau ordonné):', features);
       const response = await this.makeRequest('/arroser', {
         method: 'POST',
@@ -125,7 +128,7 @@ class BackendService {
       }
 
       const data = await response.json();
-      console.log('✅ Recommandation IA reçue depuis Flask:', data);
+      console.log('✅ Recommandation IA + MQTT AUTO reçue depuis Flask:', data);
 
       if (data.status === 'ok') {
         irrigationDataService.addIrrigation({
@@ -135,11 +138,16 @@ class BackendService {
           source: 'ml',
           type: 'ml'
         });
+        
+        // 🚀 Log spécial pour irrigation automatique ML
+        if (data.auto_irrigation && data.mqtt_started) {
+          console.log('🚿 IRRIGATION ML AUTO DÉMARRÉE ! Durée:', data.duree_minutes, 'min');
+        }
       }
 
       return data;
     } catch (error) {
-      console.error('❌ Erreur lors de la requête ML:', error);
+      console.error('❌ Erreur lors de la requête ML AUTO:', error);
       throw error;
     }
   }
