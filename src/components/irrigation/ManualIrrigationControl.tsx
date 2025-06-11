@@ -38,12 +38,12 @@ export const ManualIrrigationControl = () => {
     if (isLoading) return;
     
     setIsLoading(true);
-    console.log(`🚿 Action irrigation manuelle: ${isManualActive ? 'ARRÊT' : 'DÉMARRAGE'}`);
+    console.log(`Action irrigation manuelle: ${isManualActive ? 'ARRÊT' : 'DÉMARRAGE'}`);
 
     try {
       if (isManualActive) {
         // ARRÊTER l'irrigation
-        console.log('🛑 Envoi commande ARRÊT irrigation...');
+        console.log('Envoi commande ARRÊT irrigation...');
         
         // Méthode 1: Via backend Flask
         const backendResult = await backendService.stopIrrigation();
@@ -55,11 +55,11 @@ export const ManualIrrigationControl = () => {
         
         if (backendResult.success || mqttResult) {
           setIsManualActive(false);
-          toast.success("🛑 Irrigation arrêtée", {
+          toast.success("Irrigation arrêtée", {
             description: "Commande STOP envoyée au broker MQTT"
           });
         } else {
-          toast.error("❌ Erreur lors de l'arrêt", {
+          toast.error("Erreur lors de l'arrêt", {
             description: backendResult.message || "Vérifiez la connexion MQTT"
           });
         }
@@ -69,13 +69,13 @@ export const ManualIrrigationControl = () => {
         const minutes = parseInt(manualDuration.minutes) || 0;
         
         if (hours === 0 && minutes === 0) {
-          toast.error("⚠️ Durée invalide", {
+          toast.error("Durée invalide", {
             description: "Veuillez spécifier une durée supérieure à 0"
           });
           return;
         }
 
-        console.log(`🚿 Démarrage irrigation: ${hours}h ${minutes}min`);
+        console.log(`Démarrage irrigation: ${hours}h ${minutes}min`);
         
         // Méthode 1: Via backend Flask  
         const backendResult = await backendService.startManualIrrigation(hours, minutes);
@@ -83,29 +83,29 @@ export const ManualIrrigationControl = () => {
         
         if (backendResult.success) {
           setIsManualActive(true);
-          toast.success("✅ Irrigation démarrée", {
+          toast.success("Irrigation démarrée", {
             description: `Durée: ${hours}h ${minutes}min - MQTT activé`
           });
         } else {
           // Méthode 2: Fallback direct MQTT si backend échoue
-          console.log('🔄 Fallback: commande MQTT directe...');
+          console.log('Fallback: commande MQTT directe...');
           const mqttResult = await publishIrrigationCommand(1);
           
           if (mqttResult) {
             setIsManualActive(true);
-            toast.success("✅ Irrigation démarrée (MQTT direct)", {
+            toast.success("Irrigation démarrée (MQTT direct)", {
               description: `Durée: ${hours}h ${minutes}min`
             });
           } else {
-            toast.error("❌ Erreur de démarrage", {
+            toast.error("Erreur de démarrage", {
               description: backendResult.message || "Vérifiez la connexion MQTT"
             });
           }
         }
       }
     } catch (error) {
-      console.error('❌ Erreur irrigation manuelle:', error);
-      toast.error("❌ Erreur de connexion", {
+      console.error('Erreur irrigation manuelle:', error);
+      toast.error("Erreur de connexion", {
         description: "Impossible de communiquer avec le système"
       });
     } finally {
@@ -146,7 +146,7 @@ export const ManualIrrigationControl = () => {
       <CardContent className="space-y-6">
         {/* Configuration de la durée */}
         <div className="space-y-4">
-          <Label className="text-base font-medium">⏱️ Configuration de la durée</Label>
+          <Label className="text-base font-medium">Configuration de la durée</Label>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm">Heures</Label>
@@ -178,11 +178,11 @@ export const ManualIrrigationControl = () => {
           {getTotalMinutes() > 0 && (
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-700">⏱️ Durée totale:</span>
+                <span className="text-blue-700">Durée totale:</span>
                 <span className="font-medium">{getTotalMinutes()} minutes</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-700">💧 Volume estimé:</span>
+                <span className="text-blue-700">Volume estimé:</span>
                 <span className="font-medium">{getEstimatedVolume()} m³</span>
               </div>
             </div>
@@ -193,7 +193,7 @@ export const ManualIrrigationControl = () => {
 
         {/* Contrôles d'irrigation */}
         <div className="space-y-4">
-          <Label className="text-base font-medium">🎮 Contrôles</Label>
+          <Label className="text-base font-medium">Contrôles</Label>
           
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-4">
@@ -222,9 +222,9 @@ export const ManualIrrigationControl = () => {
               
               <div className="text-sm font-medium">
                 {isManualActive ? (
-                  <span className="text-red-600">🔴 Irrigation en cours</span>
+                  <span className="text-red-600">Irrigation en cours</span>
                 ) : (
-                  <span className="text-gray-600">⚫ Irrigation arrêtée</span>
+                  <span className="text-gray-600">Irrigation arrêtée</span>
                 )}
               </div>
             </div>
@@ -241,9 +241,9 @@ export const ManualIrrigationControl = () => {
           {/* Statut de connexion détaillé */}
           <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
             <div className="flex items-center justify-between">
-              <span>🔗 Statut MQTT:</span>
+              <span>Statut MQTT:</span>
               <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
-                {isConnected ? '✅ Connecté au broker PulsarInfinite' : '❌ Déconnecté'}
+                {isConnected ? 'Connecté au broker PulsarInfinite' : 'Déconnecté'}
               </span>
             </div>
           </div>

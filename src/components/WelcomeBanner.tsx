@@ -24,15 +24,15 @@ export const WelcomeBanner = () => {
           
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white/10 border border-blue-300/30 rounded-lg p-4 backdrop-blur-sm">
-              <h3 className="font-semibold text-lg text-white">🌱 Agriculture Smart</h3>
+              <h3 className="font-semibold text-lg text-white">Agriculture Smart</h3>
               <p className="text-sm text-blue-100">Irrigation intelligente basée sur l'IA</p>
             </div>
             <div className="bg-white/10 border border-blue-300/30 rounded-lg p-4 backdrop-blur-sm">
-              <h3 className="font-semibold text-lg text-white">📊 Données Temps Réel</h3>
+              <h3 className="font-semibold text-lg text-white">Données Temps Réel</h3>
               <p className="text-sm text-blue-100">Monitoring en continu des cultures</p>
             </div>
             <div className="bg-white/10 border border-blue-300/30 rounded-lg p-4 backdrop-blur-sm">
-              <h3 className="font-semibold text-lg text-white">⚡ Contrôle MQTT</h3>
+              <h3 className="font-semibold text-lg text-white">Contrôle MQTT</h3>
               <p className="text-sm text-blue-100">Gestion à distance optimisée</p>
             </div>
           </div>
