@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -226,22 +227,6 @@ export const AgroClimateParams = ({ onLocationChange }: AgroClimateParamsProps) 
               </div>
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Cloud className="h-5 w-5 text-blue-600" />
-            <span>Conditions Météo</span>
-            {weatherData && (
-              <span className="text-sm font-normal text-gray-600">
-                - {weatherData.location}
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
         </CardContent>
       </Card>
     </div>
