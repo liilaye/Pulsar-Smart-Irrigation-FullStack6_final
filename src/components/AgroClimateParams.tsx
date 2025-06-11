@@ -1,12 +1,14 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Cloud, Thermometer, TestTube, Leaf, MapPin, Eye, Wind } from 'lucide-react';
+import { Cloud, Thermometer, TestTube, Leaf, MapPin } from 'lucide-react';
 import { useWeather } from '@/hooks/useWeather';
-import { Recommendations } from './Recommendations';
+
+interface AgroClimateParamsProps {
+  onLocationChange?: (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => void;
+}
 
 const getWeatherIcon = (iconType: string) => {
   switch (iconType) {
@@ -47,9 +49,20 @@ const getStatusColor = (status: string) => {
   }
 };
 
-export const AgroClimateParams = () => {
+export const AgroClimateParams = ({ onLocationChange }: AgroClimateParamsProps) => {
   const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'>('thies');
   const { weatherData, isLoading, error } = useWeather(selectedLocation);
+
+  // Notifier le parent du changement de région
+  useEffect(() => {
+    if (onLocationChange) {
+      onLocationChange(selectedLocation);
+    }
+  }, [selectedLocation, onLocationChange]);
+
+  const handleLocationChange = (value: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => {
+    setSelectedLocation(value);
+  };
 
   // Paramètres climatiques réduits sans les icônes
   const climateData = weatherData ? [
@@ -93,7 +106,7 @@ export const AgroClimateParams = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Label className="text-sm">Région:</Label>
-              <Select value={selectedLocation} onValueChange={(value: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny') => setSelectedLocation(value)}>
+              <Select value={selectedLocation} onValueChange={handleLocationChange}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
@@ -235,3 +248,5 @@ export const AgroClimateParams = () => {
     </div>
   );
 };
+
+export default AgroClimateParams;

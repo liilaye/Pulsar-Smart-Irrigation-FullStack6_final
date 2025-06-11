@@ -11,12 +11,15 @@ import { BackendConnectionStatus } from './BackendConnectionStatus';
 import { WelcomeBanner } from './WelcomeBanner';
 import { Footer } from './Footer';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Brain } from 'lucide-react';
+import { TrendingUp, Brain, Cloud } from 'lucide-react';
 import { backendService, TrendAnalysis, MLPredictionAnalysis } from '@/services/backendService';
+import { useWeather } from '@/hooks/useWeather';
 
 export const Dashboard = () => {
   const [trendAnalysis, setTrendAnalysis] = useState<TrendAnalysis | null>(null);
   const [mlPredictions, setMLPredictions] = useState<MLPredictionAnalysis | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'>('thies');
+  const { weatherData, isLoading, error } = useWeather(selectedLocation);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -40,6 +43,17 @@ export const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const getLocationName = () => {
+    const names = {
+      'thies': 'Thiès',
+      'taiba-ndiaye': 'Taïba Ndiaye', 
+      'hann-maristes': 'Hann Maristes',
+      'dakar': 'Dakar',
+      'bargny': 'Bargny'
+    };
+    return names[selectedLocation] || 'Thiès';
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 space-y-8">
@@ -62,7 +76,7 @@ export const Dashboard = () => {
         {/* Section Paramètres Agro-climatiques */}
         <section id="sensors" className="scroll-mt-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Paramètres Agro-climatiques</h2>
-          <AgroClimateParams />
+          <AgroClimateParams onLocationChange={setSelectedLocation} />
         </section>
         
         {/* Section Analyses */}
@@ -146,12 +160,82 @@ export const Dashboard = () => {
               </Card>
             </div>
           </div>
-        </section>
-        
-        {/* Section Recommandations - Contient déjà les conditions météo dynamiques */}
-        <section id="recommendations" className="scroll-mt-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations</h2>
-          <Recommendations />
+          
+          {/* Section Recommandations et Conditions Météo côte à côte */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            {/* Recommandations */}
+            <div>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Recommandations</h3>
+              <Recommendations selectedLocation={selectedLocation} />
+            </div>
+            
+            {/* Conditions Météo */}
+            <div>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Conditions Météo ({getLocationName()})
+              </h3>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Cloud className="h-5 w-5 text-blue-600" />
+                    <span>Conditions Météo</span>
+                    {weatherData && (
+                      <span className="text-sm font-normal text-gray-600">
+                        - {weatherData.location}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+                      <p className="text-sm text-blue-700">Chargement des conditions météo pour {getLocationName()}...</p>
+                    </div>
+                  )}
+                  
+                  {error && (
+                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg mb-4">
+                      <p className="text-sm text-orange-700">Connexion OpenWeather en cours... Données de secours affichées</p>
+                    </div>
+                  )}
+                  
+                  {weatherData ? (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span>Température:</span>
+                        <span className="font-medium text-orange-600">{weatherData.temperature}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Humidité:</span>
+                        <span className="font-medium text-blue-600">{weatherData.humidity}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Vent:</span>
+                        <span className="font-medium text-gray-600">{weatherData.windSpeed}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Précipitations:</span>
+                        <span className="font-medium text-green-600">{weatherData.precipitation}</span>
+                      </div>
+                      {weatherData.description && (
+                        <div className="flex justify-between items-center">
+                          <span>Condition:</span>
+                          <span className="font-medium text-purple-600">{weatherData.description}</span>
+                        </div>
+                      )}
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          🌤️ Données météo en temps réel depuis OpenWeatherMap API
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">Chargement des conditions météo...</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </section>
         
         {/* Section Système d'Irrigation avec Géolocalisation */}
