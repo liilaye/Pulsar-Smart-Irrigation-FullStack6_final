@@ -1,3 +1,4 @@
+
 import mqtt from 'mqtt';
 
 interface MQTTMessage {
@@ -11,7 +12,7 @@ interface MQTTServiceState {
   currentBroker: string;
   reconnectAttempts: number;
   lastMessage: MQTTMessage | null;
-  connectionHealth: number; // 0-100%
+  connectionHealth: number;
 }
 
 class MQTTService {
@@ -24,7 +25,6 @@ class MQTTService {
     connectionHealth: 0
   };
   
-  // Configuration fixe pour PulsarInfinite uniquement
   private readonly BROKER_URL = 'ws://217.182.210.54:8080/mqtt';
   private readonly CLIENT_OPTIONS: mqtt.IClientOptions = {
     clientId: `PulsarInfinite_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -144,13 +144,8 @@ class MQTTService {
       'data/PulsarInfinite/logs'
     ];
 
-    // Utiliser les QoS comme nombres (0, 1, 2) directement
-    const topicObject: { [key: string]: 0 | 1 | 2 } = {};
-    topics.forEach(topic => {
-      topicObject[topic] = 1;
-    });
-
-    this.client.subscribe(topicObject, (err, granted) => {
+    // Utiliser le format correct selon la documentation MQTT.js
+    this.client.subscribe(topics, { qos: 1 }, (err, granted) => {
       if (err) {
         console.error(`❌ Erreur abonnement topics:`, err);
       } else {
