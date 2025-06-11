@@ -7,12 +7,13 @@
 export const api = {
   /**
    * Envoie les caractéristiques au modèle ML pour décider de l'arrosage.
-   * @param features - Les données d'entrée pour le modèle ML.
+   * @param features - TABLEAU ordonné de 15 valeurs numériques pour XGBoost.
    */
-  arroserAvecML: async (features: Record<string, any>) => {
+  arroserAvecML: async (features: number[]) => {
     try {
       console.log("🤖 Envoi requête ML vers Flask backend...");
       console.log("🔄 Requête vers: /api/arroser");
+      console.log("📊 Features (tableau de 15 valeurs):", features);
       
       const res = await fetch(`/api/arroser`, {
         method: "POST",

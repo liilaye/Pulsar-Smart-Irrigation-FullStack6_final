@@ -1,3 +1,4 @@
+
 // Types et interfaces
 export interface IrrigationRequest {
   durationHours: number;
@@ -111,9 +112,10 @@ class BackendService {
     }
   }
 
-  async arroserAvecML(features: Record<string, number>): Promise<MLPrediction> {
+  async arroserAvecML(features: number[]): Promise<MLPrediction> {
     try {
       console.log('🤖 Envoi des features pour arrosage IA (ML) vers Flask...');
+      console.log('📊 Features (tableau ordonné):', features);
       const response = await this.makeRequest('/arroser', {
         method: 'POST',
         body: JSON.stringify({ features })
@@ -146,6 +148,7 @@ class BackendService {
   async getMLRecommendation(soilClimateFeatures: number[]): Promise<MLPrediction | null> {
     try {
       console.log('🤖 Envoi requête ML vers Flask backend...');
+      console.log('📊 Features envoyées:', soilClimateFeatures);
       const response = await this.makeRequest('/arroser', {
         method: 'POST',
         body: JSON.stringify({
@@ -351,9 +354,23 @@ class BackendService {
   
 
   getDefaultSoilClimateFeatures(): number[] {
+    // ✅ CORRECTION: Retourner un tableau ordonné de 15 valeurs
     return [
-      25.0, 0, 65, 12.0, 1, 10000,
-      26.0, 42, 1.2, 6.8, 45, 38, 152, 3, 2
+      25.0,   // Température_air_(°C)
+      0,      // Précipitation_(mm)
+      65,     // Humidité_air_(%)
+      12.0,   // Vent_moyen_(km/h)
+      1,      // Type_culture
+      10000,  // Périmètre_agricole_(m2)
+      26.0,   // Température_sol_(°C)
+      42,     // Humidité_sol_(%)
+      1.2,    // EC_(dS/m)
+      6.8,    // pH_sol
+      45,     // Azote_(mg/kg)
+      38,     // Phosphore_(mg/kg)
+      152,    // Potassium_(mg/kg)
+      3,      // Fertilité_(score)
+      2       // Type_sol
     ];
   }
 }

@@ -16,24 +16,29 @@ export const MLRecommendation = () => {
   const handleMLRequest = async () => {
     setIsLoading(true);
     try {
-      // Utiliser le service API au lieu d'un appel direct
-      const data = await api.arroserAvecML({
-        "Température_air_(°C)": 29,
-        "Précipitation_(mm)": 0,
-        "Humidité_air_(%)": 62,
-        "Vent_moyen_(km/h)": 4,
-        "Type_culture": 1,
-        "Périmètre_agricole_(m2)": 600,
-        "Température_sol_(°C)": 26,
-        "Humidité_sol_(%)": 40,
-        "EC_(dS/m)": 0.9,
-        "pH_sol": 6.5,
-        "Azote_(mg/kg)": 10,
-        "Phosphore_(mg/kg)": 15,
-        "Potassium_(mg/kg)": 20,
-        "Fertilité_(score)": 4,
-        "Type_sol": 2
-      });
+      // ✅ CORRECTION: Envoyer un TABLEAU ordonné de 15 valeurs comme attendu par XGBoost
+      const featuresArray = [
+        29,    // Température_air_(°C)
+        0,     // Précipitation_(mm)
+        62,    // Humidité_air_(%)
+        4,     // Vent_moyen_(km/h)
+        1,     // Type_culture
+        600,   // Périmètre_agricole_(m2)
+        26,    // Température_sol_(°C)
+        40,    // Humidité_sol_(%)
+        0.9,   // EC_(dS/m)
+        6.5,   // pH_sol
+        10,    // Azote_(mg/kg)
+        15,    // Phosphore_(mg/kg)
+        20,    // Potassium_(mg/kg)
+        4,     // Fertilité_(score)
+        2      // Type_sol
+      ];
+
+      console.log("🤖 Envoi des features ML (tableau ordonné de 15 valeurs):", featuresArray);
+
+      // Utiliser le service API avec le bon format
+      const data = await api.arroserAvecML(featuresArray);
 
       console.log("✅ Réponse ML :", data);
       setPrediction({
@@ -97,6 +102,10 @@ export const MLRecommendation = () => {
           <span className="text-xs">
             {isBackendConnected ? 'API Flask connectée' : 'API Flask non disponible'}
           </span>
+        </div>
+
+        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+          📊 Format: Tableau ordonné de 15 paramètres agro-climatiques
         </div>
       </CardContent>
     </Card>
