@@ -69,11 +69,16 @@ export const useMQTT = () => {
     return mqttService.getBrokerInfo();
   }, []);
 
+  const testConnection = useCallback(async () => {
+    return await mqttService.testConnection();
+  }, []);
+
   return {
     isConnected: state.isConnected,
     currentBroker: state.currentBroker,
     connectionHealth: state.connectionHealth,
     reconnectAttempts: state.reconnectAttempts,
+    lastError: state.lastError,
     messages: recentMessages,
     irrigationStatus,
     isManualMode,
@@ -81,6 +86,7 @@ export const useMQTT = () => {
     publishIrrigationCommand,
     retryConnection,
     getBrokerInfo,
+    testConnection,
     maxRetries: 5 // Pour compatibility
   };
 };

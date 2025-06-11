@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { QuickControl } from './QuickControl';
 import { AgroClimateParams } from './AgroClimateParams';
@@ -14,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Brain, Cloud } from 'lucide-react';
 import { backendService, TrendAnalysis, MLPredictionAnalysis } from '@/services/backendService';
 import { useWeather } from '@/hooks/useWeather';
+import { MQTTDiagnostic } from './mqtt/MQTTDiagnostic';
+import { MQTTCommandTester } from './mqtt/MQTTCommandTester';
 
 export const Dashboard = () => {
   const [trendAnalysis, setTrendAnalysis] = useState<TrendAnalysis | null>(null);
@@ -51,6 +52,14 @@ export const Dashboard = () => {
         {/* Section Statut Backend */}
         <section className="mb-6">
           <BackendConnectionStatus />
+        </section>
+
+        {/* Section Diagnostic MQTT */}
+        <section className="mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MQTTDiagnostic />
+            <MQTTCommandTester />
+          </div>
         </section>
         
         {/* Section Tableau de bord principal */}

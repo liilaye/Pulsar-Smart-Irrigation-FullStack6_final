@@ -1,5 +1,4 @@
 
-
 import mqtt from 'mqtt';
 
 interface MQTTMessage {
@@ -14,6 +13,8 @@ interface MQTTServiceState {
   reconnectAttempts: number;
   lastMessage: MQTTMessage | null;
   connectionHealth: number;
+  lastError: string | null;
+  debugLogs: string[];
 }
 
 class MQTTService {
@@ -23,7 +24,9 @@ class MQTTService {
     currentBroker: '',
     reconnectAttempts: 0,
     lastMessage: null,
-    connectionHealth: 0
+    connectionHealth: 0,
+    lastError: null,
+    debugLogs: []
   };
   
   private readonly BROKER_URL = 'ws://217.182.210.54:8080/mqtt';
@@ -53,11 +56,26 @@ class MQTTService {
   private healthCheckInterval: NodeJS.Timeout | null = null;
 
   constructor() {
+    this.addDebugLog('🚀 Initialisation du service MQTT PulsarInfinite');
     this.startHealthCheck();
   }
 
+  private addDebugLog(message: string) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}`;
+    this.state.debugLogs.push(logEntry);
+    
+    // Garder seulement les 50 derniers logs
+    if (this.state.debugLogs.length > 50) {
+      this.state.debugLogs = this.state.debugLogs.slice(-50);
+    }
+    
+    console.log(logEntry);
+  }
+
   async connect(): Promise<boolean> {
-    console.log(`🔄 Connexion au broker PulsarInfinite: ${this.BROKER_URL}`);
+    this.addDebugLog(`🔄 Tentative de connexion au broker: ${this.BROKER_URL}`);
+    this.addDebugLog(`📋 Client ID: ${this.CLIENT_OPTIONS.clientId}`);
 
     this.cleanup();
 
@@ -65,9 +83,10 @@ class MQTTService {
       this.client = mqtt.connect(this.BROKER_URL, this.CLIENT_OPTIONS);
       this.state.currentBroker = this.BROKER_URL;
       this.state.reconnectAttempts++;
+      this.state.lastError = null;
 
       this.client.on('connect', (connack) => {
-        console.log(`✅ Connecté au broker PulsarInfinite:`, connack);
+        this.addDebugLog(`✅ Connexion réussie! CONNACK: ${JSON.stringify(connack)}`);
         this.state.isConnected = true;
         this.state.reconnectAttempts = 0;
         this.state.connectionHealth = 100;
@@ -78,7 +97,7 @@ class MQTTService {
       });
 
       this.client.on('reconnect', () => {
-        console.log('🔄 Reconnexion au broker PulsarInfinite...');
+        this.addDebugLog('🔄 Reconnexion automatique en cours...');
         this.state.reconnectAttempts++;
         this.notifyListeners();
       });
@@ -94,49 +113,56 @@ class MQTTService {
         this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 5);
         this.notifyMessageListeners(mqttMessage);
         
-        console.log(`📨 Message MQTT reçu sur ${topic}:`, message.toString());
+        this.addDebugLog(`📨 Message reçu sur ${topic}: ${message.toString().substring(0, 100)}...`);
       });
 
       this.client.on('error', (error) => {
-        console.error(`❌ Erreur MQTT PulsarInfinite:`, error);
+        const errorMsg = `Erreur MQTT: ${error.message}`;
+        this.addDebugLog(`❌ ${errorMsg}`);
+        this.state.lastError = errorMsg;
         this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 20);
         this.notifyListeners();
       });
 
       this.client.on('offline', () => {
-        console.log('📴 Client MQTT hors ligne - reconnexion automatique activée');
+        this.addDebugLog('📴 Client hors ligne - reconnexion automatique');
         this.state.isConnected = false;
         this.state.connectionHealth = 0;
         this.notifyListeners();
       });
 
       this.client.on('close', () => {
-        console.log('🔌 Connexion MQTT fermée');
+        this.addDebugLog('🔌 Connexion fermée');
         this.state.isConnected = false;
         this.notifyListeners();
       });
 
       this.client.on('disconnect', (packet) => {
-        console.log('🔌 Déconnexion MQTT:', packet);
+        this.addDebugLog(`🔌 Déconnexion: ${JSON.stringify(packet)}`);
       });
 
       this.client.on('packetsend', (packet) => {
-        console.log('📤 Packet envoyé:', packet.cmd);
+        this.addDebugLog(`📤 Packet envoyé: ${packet.cmd}`);
       });
 
       this.client.on('packetreceive', (packet) => {
-        console.log('📥 Packet reçu:', packet.cmd);
+        this.addDebugLog(`📥 Packet reçu: ${packet.cmd}`);
       });
 
       return true;
     } catch (error) {
-      console.error(`❌ Erreur création client MQTT:`, error);
+      const errorMsg = `Erreur création client: ${error}`;
+      this.addDebugLog(`❌ ${errorMsg}`);
+      this.state.lastError = errorMsg;
       return false;
     }
   }
 
   private subscribeToTopics() {
-    if (!this.client || !this.state.isConnected) return;
+    if (!this.client || !this.state.isConnected) {
+      this.addDebugLog('❌ Impossible de s\'abonner: client non connecté');
+      return;
+    }
 
     const topics = [
       'data/PulsarInfinite/swr',
@@ -145,28 +171,34 @@ class MQTTService {
       'data/PulsarInfinite/logs'
     ];
 
-    // Utiliser le format correct selon la documentation MQTT.js
+    this.addDebugLog(`📡 Abonnement aux topics: ${topics.join(', ')}`);
+
     this.client.subscribe(topics, { qos: 1 }, (err, granted) => {
       if (err) {
-        console.error(`❌ Erreur abonnement topics:`, err);
+        this.addDebugLog(`❌ Erreur abonnement: ${err.message}`);
+        this.state.lastError = `Erreur abonnement: ${err.message}`;
       } else {
-        console.log(`📡 Abonné aux topics:`, granted);
+        this.addDebugLog(`✅ Abonnements réussis: ${JSON.stringify(granted)}`);
       }
     });
   }
 
   private publishPresence() {
-    this.publish('data/PulsarInfinite/status', JSON.stringify({
+    const presencePayload = JSON.stringify({
       device: 'connected',
       timestamp: Date.now(),
       client: 'PulsarInfinite_Frontend',
-      version: '2.0'
-    }), { qos: 1, retain: true });
+      version: '2.0',
+      clientId: this.CLIENT_OPTIONS.clientId
+    });
+
+    this.addDebugLog('📡 Publication de la présence...');
+    this.publish('data/PulsarInfinite/status', presencePayload, { qos: 1, retain: true });
   }
 
   publish(topic: string, message: string, options: { qos?: 0 | 1 | 2; retain?: boolean } = {}): boolean {
     if (!this.client || !this.state.isConnected) {
-      console.error('❌ Client MQTT non connecté pour publication');
+      this.addDebugLog('❌ Publication impossible: client non connecté');
       return false;
     }
 
@@ -176,14 +208,16 @@ class MQTTService {
       retain: true // Toujours retain true pour que les objets connectés reçoivent les commandes
     };
 
-    console.log(`📤 Publication MQTT: ${topic} → ${message} (QoS: ${publishOptions.qos}, Retain: ${publishOptions.retain})`);
+    this.addDebugLog(`📤 Publication: ${topic} → ${message.substring(0, 100)}... (QoS: ${publishOptions.qos}, Retain: ${publishOptions.retain})`);
     
     this.client.publish(topic, message, publishOptions, (error) => {
       if (error) {
-        console.error('❌ Erreur publication MQTT:', error);
+        const errorMsg = `Erreur publication: ${error.message}`;
+        this.addDebugLog(`❌ ${errorMsg}`);
+        this.state.lastError = errorMsg;
         this.state.connectionHealth = Math.max(0, this.state.connectionHealth - 10);
       } else {
-        console.log('✅ Message publié avec succès (QoS 1, Retain true)!');
+        this.addDebugLog('✅ Publication réussie (QoS 1, Retain true)');
         this.state.connectionHealth = Math.min(100, this.state.connectionHealth + 2);
       }
       this.notifyListeners();
@@ -214,10 +248,10 @@ class MQTTService {
     };
 
     for (let attempt = 1; attempt <= retries; attempt++) {
-      console.log(`🚿 Tentative ${attempt}/${retries} - Commande irrigation: ${deviceState ? 'ON' : 'OFF'}`);
+      this.addDebugLog(`🚿 Tentative ${attempt}/${retries} - Commande irrigation: ${deviceState ? 'ON' : 'OFF'}`);
       
       if (!this.state.isConnected) {
-        console.log('❌ Pas de connexion MQTT, tentative de reconnexion...');
+        this.addDebugLog('❌ Reconnexion nécessaire...');
         await this.connect();
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
@@ -228,22 +262,28 @@ class MQTTService {
       if (success) {
         const confirmed = await this.waitForConfirmation(deviceState, 8000);
         if (confirmed) {
+          this.addDebugLog(`✅ Commande irrigation confirmée: ${deviceState ? 'ON' : 'OFF'}`);
           return true;
         }
       }
       
       if (attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        const delay = 2000 * attempt;
+        this.addDebugLog(`⏰ Retry dans ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
+    this.addDebugLog(`❌ Échec après ${retries} tentatives`);
     return false;
   }
 
   private async waitForConfirmation(expectedState: number, timeout: number): Promise<boolean> {
+    this.addDebugLog(`⏳ Attente confirmation état ${expectedState} (timeout: ${timeout}ms)`);
+    
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
-        console.log('⏰ Timeout confirmation irrigation');
+        this.addDebugLog('⏰ Timeout confirmation irrigation');
         resolve(false);
       }, timeout);
 
@@ -258,7 +298,7 @@ class MQTTService {
             
           if (irrigationActive) {
             clearTimeout(timer);
-            console.log('✅ Confirmation irrigation reçue');
+            this.addDebugLog('✅ Confirmation irrigation reçue');
             resolve(true);
           }
         } catch (error) {
@@ -302,10 +342,11 @@ class MQTTService {
   private cleanup() {
     if (this.client) {
       try {
+        this.addDebugLog('🧹 Nettoyage client MQTT...');
         this.client.removeAllListeners();
         this.client.end(true);
       } catch (error) {
-        console.error('Erreur fermeture client MQTT:', error);
+        this.addDebugLog(`⚠️ Erreur nettoyage: ${error}`);
       }
     }
     
@@ -314,13 +355,17 @@ class MQTTService {
   }
 
   forceReconnect() {
-    console.log('🔄 Reconnexion forcée demandée');
+    this.addDebugLog('🔄 Reconnexion forcée demandée');
     this.cleanup();
     this.connect();
   }
 
   getState(): MQTTServiceState {
     return { ...this.state };
+  }
+
+  getDebugLogs(): string[] {
+    return [...this.state.debugLogs];
   }
 
   subscribe(callback: (state: MQTTServiceState) => void) {
@@ -351,11 +396,52 @@ class MQTTService {
       available: [{ url: this.BROKER_URL, priority: 1 }],
       health: this.state.connectionHealth,
       reconnectAttempts: this.state.reconnectAttempts,
-      clientId: this.CLIENT_OPTIONS.clientId
+      clientId: this.CLIENT_OPTIONS.clientId,
+      lastError: this.state.lastError,
+      debugLogs: this.getDebugLogs()
     };
   }
 
+  // Méthode de test pour diagnostics
+  async testConnection(): Promise<{ success: boolean; details: string[] }> {
+    const details: string[] = [];
+    
+    details.push('🔍 Test de diagnostic MQTT...');
+    details.push(`📋 Broker: ${this.BROKER_URL}`);
+    details.push(`📋 Client ID: ${this.CLIENT_OPTIONS.clientId}`);
+    
+    if (!this.state.isConnected) {
+      details.push('❌ Client non connecté - tentative de connexion...');
+      const connected = await this.connect();
+      if (!connected) {
+        details.push('❌ Échec de connexion');
+        return { success: false, details };
+      }
+    }
+    
+    details.push('✅ Client connecté');
+    
+    // Test de publication
+    const testPayload = JSON.stringify({
+      type: 'TEST',
+      timestamp: Date.now(),
+      source: 'diagnostic'
+    });
+    
+    const published = this.publish('data/PulsarInfinite/test', testPayload);
+    if (published) {
+      details.push('✅ Test de publication réussi');
+    } else {
+      details.push('❌ Échec test de publication');
+      return { success: false, details };
+    }
+    
+    details.push('✅ Tous les tests passés');
+    return { success: true, details };
+  }
+
   destroy() {
+    this.addDebugLog('🔚 Destruction du service MQTT');
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
     }
