@@ -11,14 +11,12 @@ import { BackendConnectionStatus } from './BackendConnectionStatus';
 import { WelcomeBanner } from './WelcomeBanner';
 import { Footer } from './Footer';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Brain, Cloud } from 'lucide-react';
+import { TrendingUp, Brain } from 'lucide-react';
 import { backendService, TrendAnalysis, MLPredictionAnalysis } from '@/services/backendService';
-import { useWeather } from '@/hooks/useWeather';
 
 export const Dashboard = () => {
   const [trendAnalysis, setTrendAnalysis] = useState<TrendAnalysis | null>(null);
   const [mlPredictions, setMLPredictions] = useState<MLPredictionAnalysis | null>(null);
-  const { weatherData } = useWeather('thies');
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -150,51 +148,10 @@ export const Dashboard = () => {
           </div>
         </section>
         
-        {/* Section Recommandations avec météo connectée */}
+        {/* Section Recommandations - Contient déjà les conditions météo dynamiques */}
         <section id="recommendations" className="scroll-mt-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Recommendations />
-            
-            {/* Conditions Météo en temps réel */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Cloud className="h-5 w-5 text-blue-600" />
-                  <span>Conditions Météo - Thiès</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {weatherData ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span>Température:</span>
-                      <span className="font-medium text-orange-600">{weatherData.temperature}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Humidité:</span>
-                      <span className="font-medium text-blue-600">{weatherData.humidity}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Vent:</span>
-                      <span className="font-medium text-gray-600">{weatherData.windSpeed}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Précipitations:</span>
-                      <span className="font-medium text-green-600">{weatherData.precipitation}</span>
-                    </div>
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        🌤️ Données météo en temps réel depuis le serveur Flask
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-600">Chargement des conditions météo...</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <Recommendations />
         </section>
         
         {/* Section Système d'Irrigation avec Géolocalisation */}
