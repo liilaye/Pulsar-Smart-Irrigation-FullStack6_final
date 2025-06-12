@@ -237,6 +237,12 @@ export const Dashboard = () => {
             </div>
           </div>
         </section>
+
+        {/* Section Recommandations séparée pour la navigation */}
+        <section id="recommendations" className="scroll-mt-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations IA</h2>
+          <Recommendations selectedLocation={selectedLocation} />
+        </section>
         
         {/* Section Système d'Irrigation avec Géolocalisation */}
         <section id="irrigation-system" className="scroll-mt-6">
