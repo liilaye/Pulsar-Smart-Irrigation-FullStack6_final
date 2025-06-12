@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useMQTT } from '@/hooks/useMQTT';
+import { useIrrigationStatus } from '@/hooks/useIrrigationStatus';
+import { MLParametersDisplay } from './MLParametersDisplay';
 import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
 
@@ -16,10 +18,19 @@ interface MLRecommendation {
 
 export const SimpleMLControl = () => {
   const [recommendation, setRecommendation] = useState<MLRecommendation | null>(null);
-  const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string>('');
   const { isConnected } = useMQTT();
+  const irrigationStatus = useIrrigationStatus();
+
+  // Synchroniser l'état local avec le statut du backend
+  const isActive = irrigationStatus.isActive && irrigationStatus.type === 'ml';
+
+  useEffect(() => {
+    if (!irrigationStatus.isActive && isActive !== irrigationStatus.isActive) {
+      setLastAction('Irrigation ML terminée automatiquement');
+    }
+  }, [irrigationStatus.isActive, isActive]);
 
   const handleStartML = async () => {
     setIsLoading(true);
@@ -34,7 +45,6 @@ export const SimpleMLControl = () => {
         setRecommendation(response);
         
         if (response.mqtt_started && response.auto_irrigation) {
-          setIsActive(true);
           setLastAction(`Irrigation ML active: ${Math.floor(response.duree_minutes)} min`);
           toast.success("Irrigation ML démarrée", {
             description: `Durée optimisée: ${Math.floor(response.duree_minutes)} minutes`
@@ -68,7 +78,6 @@ export const SimpleMLControl = () => {
       const response = await backendService.stopIrrigation();
       
       if (response.success) {
-        setIsActive(false);
         setLastAction('Irrigation ML arrêtée');
         toast.success("Irrigation ML arrêtée");
       } else {
@@ -122,6 +131,9 @@ export const SimpleMLControl = () => {
             </p>
           </div>
         )}
+
+        {/* Affichage des paramètres agro-climatiques pendant irrigation ML */}
+        <MLParametersDisplay isVisible={isActive} />
 
         <Separator />
 

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,15 +6,25 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Power, PowerOff } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
+import { useIrrigationStatus } from '@/hooks/useIrrigationStatus';
 import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
 
 export const SimpleManualControl = () => {
   const [duration, setDuration] = useState({ hours: '0', minutes: '30' });
-  const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string>('');
   const { isConnected } = useMQTT();
+  const irrigationStatus = useIrrigationStatus();
+
+  // Synchroniser l'état local avec le statut du backend
+  const isActive = irrigationStatus.isActive && irrigationStatus.type === 'manual';
+
+  useEffect(() => {
+    if (!irrigationStatus.isActive && isActive !== irrigationStatus.isActive) {
+      setLastAction('Irrigation terminée automatiquement');
+    }
+  }, [irrigationStatus.isActive, isActive]);
 
   const getTotalMinutes = () => {
     const hours = parseInt(duration.hours) || 0;
@@ -44,7 +53,6 @@ export const SimpleManualControl = () => {
       );
       
       if (response.success) {
-        setIsActive(true);
         setLastAction(`Irrigation active: ${totalMinutes} minutes`);
         toast.success("Irrigation démarrée", {
           description: `Durée: ${totalMinutes} minutes`
@@ -75,7 +83,6 @@ export const SimpleManualControl = () => {
       const response = await backendService.stopIrrigation();
       
       if (response.success) {
-        setIsActive(false);
         setLastAction('Irrigation arrêtée');
         toast.success("Irrigation arrêtée");
       } else {
