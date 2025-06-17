@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
-import { ArrowLeft, Save, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, MapPin, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { senegalLocationService } from '@/services/senegalLocationService';
@@ -53,6 +53,7 @@ const RegisterActor = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const [locationCoordinates, setLocationCoordinates] = useState<{lat: number; lng: number} | null>(null);
   
   const [formData, setFormData] = useState({
@@ -67,6 +68,24 @@ const RegisterActor = () => {
     type_culture: '',
     speculation: ''
   });
+
+  // Test de connexion backend au chargement
+  React.useEffect(() => {
+    const testBackend = async () => {
+      try {
+        console.log('🔍 Test initial connexion backend...');
+        await api.checkHealth();
+        setBackendError(null);
+        console.log('✅ Backend accessible au chargement');
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Erreur de connexion';
+        setBackendError(errorMsg);
+        console.error('❌ Backend non accessible au chargement:', errorMsg);
+      }
+    };
+    
+    testBackend();
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -86,8 +105,11 @@ const RegisterActor = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setBackendError(null);
 
     try {
+      console.log('🚀 Début processus enregistrement acteur');
+      
       // Valider que la localité est correcte
       if (formData.region && formData.localite) {
         const isValid = senegalLocationService.validateLocation(formData.localite, formData.region);
@@ -111,17 +133,23 @@ const RegisterActor = () => {
         }
       }
 
-      console.log('📝 Envoi des données acteur avec coordonnées:', { ...formData, coordinates });
+      console.log('📝 Données à envoyer:', { ...formData, coordinates });
       
-      // Test de connexion backend d'abord
-      console.log('🔍 Test de connexion backend...');
-      await api.checkHealth();
-      console.log('✅ Backend accessible, envoi des données...');
+      // Test de connexion backend AVANT envoi
+      console.log('🔍 Test connexion backend avant enregistrement...');
+      try {
+        await api.checkHealth();
+        console.log('✅ Backend accessible, proceeding...');
+      } catch (healthError) {
+        console.error('❌ Backend non accessible:', healthError);
+        throw new Error('Backend Flask non accessible. Démarrez le serveur avec: cd backend && python app.py');
+      }
       
-      // Utiliser le service API au lieu d'appels directs
+      // Enregistrement de l'acteur
+      console.log('📤 Envoi données acteur...');
       const result = await api.registerActor({ ...formData, coordinates });
       
-      console.log('✅ Acteur enregistré:', result);
+      console.log('✅ Acteur enregistré avec succès:', result);
       
       // Définir cet utilisateur comme actif
       const newUser = {
@@ -142,22 +170,24 @@ const RegisterActor = () => {
       }, 2000);
       
     } catch (error) {
-      console.error('❌ Erreur enregistrement acteur:', error);
+      console.error('❌ Erreur complète enregistrement acteur:', error);
       
       let errorMessage = "Impossible d'enregistrer l'acteur.";
       
       if (error instanceof Error) {
-        if (error.message.includes('Backend Flask doit être démarré')) {
-          errorMessage = "Backend Flask non accessible. Démarrez le serveur avec: cd backend && python app.py";
-        } else if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Connexion impossible au backend. Vérifiez que Flask tourne sur localhost:5002";
-        } else {
-          errorMessage = error.message;
+        errorMessage = error.message;
+        setBackendError(error.message);
+        
+        // Messages d'aide spécifiques
+        if (error.message.includes('Backend Flask non accessible')) {
+          errorMessage = "🚨 BACKEND FLASK NON DÉMARRÉ\n\nSolution:\n1. Ouvrez un terminal\n2. cd backend\n3. python app.py\n4. Attendez 'Backend Flask LOCAL - http://localhost:5002'\n5. Réessayez l'enregistrement";
+        } else if (error.message.includes('Erreur serveur Flask (500)')) {
+          errorMessage = "🚨 ERREUR SERVEUR FLASK\n\nLe serveur Flask a un problème interne.\nVérifiez les logs dans le terminal du serveur Flask.\n\nSolutions possibles:\n- Redémarrer le serveur Flask\n- Vérifier la base de données SQLite\n- Vérifier les permissions de fichiers";
         }
       }
       
       toast({
-        title: "Erreur",
+        title: "Erreur d'enregistrement",
         description: errorMessage,
         variant: "destructive"
       });
@@ -194,6 +224,31 @@ const RegisterActor = () => {
             Remplissez ce formulaire pour ajouter un nouveau bénéficiaire au système d'irrigation intelligente
           </p>
         </div>
+
+        {/* Alerte erreur backend */}
+        {backendError && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-medium text-red-800 mb-1">Problème de connexion backend</h4>
+                  <p className="text-sm text-red-700 whitespace-pre-line">{backendError}</p>
+                  <div className="mt-3 p-3 bg-red-100 rounded-lg">
+                    <p className="text-xs text-red-800 font-medium">🔧 Instructions de démarrage Flask:</p>
+                    <ol className="text-xs text-red-700 mt-1 space-y-1 list-decimal list-inside">
+                      <li>Ouvrez un terminal dans le dossier du projet</li>
+                      <li>Tapez: <code className="bg-red-200 px-1 rounded">cd backend</code></li>
+                      <li>Tapez: <code className="bg-red-200 px-1 rounded">python app.py</code></li>
+                      <li>Attendez le message: "Backend Flask LOCAL - http://localhost:5002"</li>
+                      <li>Rechargez cette page et réessayez l'enregistrement</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Formulaire */}
         <Card>
@@ -365,7 +420,7 @@ const RegisterActor = () => {
               <div className="flex justify-end pt-6">
                 <Button 
                   type="submit" 
-                  disabled={!isFormValid() || isLoading}
+                  disabled={!isFormValid() || isLoading || backendError !== null}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-md flex items-center gap-2"
                 >
                   <Save className="h-4 w-4" />
