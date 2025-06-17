@@ -5,7 +5,7 @@ import { ScheduleControl } from './ScheduleControl';
 
 export const QuickControl = () => {
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       <ManualControl />
       <ScheduleControl />
     </div>
