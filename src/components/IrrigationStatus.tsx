@@ -13,6 +13,30 @@ const parcelles = [
     surface: '2.5 hectares',
     sol: 'Sablo-argileux',
     active: true
+  },
+  {
+    id: 'B2',
+    nom: 'Parcelle Maïs B2',
+    culture: 'Maïs',
+    surface: '3.2 hectares',
+    sol: 'Argileux',
+    active: false
+  },
+  {
+    id: 'C3',
+    nom: 'Parcelle Mil C3',
+    culture: 'Mil',
+    surface: '1.8 hectares',
+    sol: 'Sableux',
+    active: false
+  },
+  {
+    id: 'D4',
+    nom: 'Parcelle Tomate D4',
+    culture: 'Tomate',
+    surface: '0.5 hectares',
+    sol: 'Limoneux',
+    active: false
   }
 ];
 

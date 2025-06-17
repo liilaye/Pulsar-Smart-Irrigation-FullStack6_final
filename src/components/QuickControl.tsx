@@ -7,9 +7,7 @@ export const QuickControl = () => {
   return (
     <div className="space-y-6">
       <ManualControl />
-      <div className="w-full">
-        <ScheduleControl />
-      </div>
+      <ScheduleControl />
     </div>
   );
 };
