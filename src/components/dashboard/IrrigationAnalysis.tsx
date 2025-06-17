@@ -27,7 +27,7 @@ export const IrrigationAnalysis = ({ irrigationAnalysis }: IrrigationAnalysisPro
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-green-600" />
-            <span>Analyse Min/Max des Tendances d'Irrigation</span>
+            <span>Analyse</span>
           </CardTitle>
           <p className="text-sm text-gray-600">
             Analyse dynamique des valeurs maximales et minimales pour chaque type d'irrigation

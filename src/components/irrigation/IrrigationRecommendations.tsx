@@ -171,14 +171,14 @@ export const IrrigationRecommendations = () => {
           
           <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
             <p className="text-sm font-medium text-yellow-800">
-              💡 {advice?.npkAdvice.fertilizerAdvice}
+              {advice?.npkAdvice.fertilizerAdvice}
             </p>
           </div>
         </div>
 
         {/* Note informative */}
         <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          🎯 Recommandations optimisées pour l'arrosage manuel en région de Taïba Ndiaye
+          Recommandations optimisées pour l'arrosage manuel en région de Taïba Ndiaye
         </div>
       </CardContent>
     </Card>
