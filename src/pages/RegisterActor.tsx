@@ -1,14 +1,15 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save } from 'lucide-react';
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import { ArrowLeft, Save, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
+import { senegalLocationService } from '@/services/senegalLocationService';
+import { activeUserService } from '@/services/activeUserService';
 
 const SENEGAL_REGIONS = [
   'Dakar', 'Thiès', 'Saint-Louis', 'Diourbel', 'Louga', 'Fatick', 
@@ -51,6 +52,7 @@ const RegisterActor = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [locationCoordinates, setLocationCoordinates] = useState<{lat: number; lng: number} | null>(null);
   
   const [formData, setFormData] = useState({
     prenom: '',
@@ -72,33 +74,72 @@ const RegisterActor = () => {
     }));
   };
 
+  const handleLocationChange = (value: string, coordinates?: { lat: number; lng: number }) => {
+    handleInputChange('localite', value);
+    if (coordinates) {
+      setLocationCoordinates(coordinates);
+      console.log('📍 Coordonnées définies:', coordinates);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      console.log('📝 Envoi des données acteur:', formData);
+      // Valider que la localité est correcte
+      if (formData.region && formData.localite) {
+        const isValid = senegalLocationService.validateLocation(formData.localite, formData.region);
+        if (!isValid) {
+          toast({
+            title: "Erreur de localisation",
+            description: "Veuillez sélectionner une localité valide dans la liste proposée.",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Obtenir les coordonnées si pas encore définies
+      let coordinates = locationCoordinates;
+      if (!coordinates && formData.localite && formData.region) {
+        const location = senegalLocationService.getLocationCoordinates(formData.localite, formData.region);
+        if (location) {
+          coordinates = { lat: location.lat, lng: location.lng };
+        }
+      }
+
+      console.log('📝 Envoi des données acteur avec coordonnées:', { ...formData, coordinates });
       
       const response = await fetch('/api/actors/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, coordinates })
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Acteur enregistré:', result);
         
+        // Définir cet utilisateur comme actif
+        const newUser = {
+          ...result.actor,
+          id: result.id,
+          coordinates
+        };
+        activeUserService.setActiveUser(newUser);
+        
         toast({
           title: "Succès !",
-          description: "Acteur enregistré avec succès. Redirection vers son dashboard...",
+          description: `${formData.prenom} ${formData.nom} enregistré avec succès. Redirection vers son dashboard...`,
         });
 
-        // Rediriger vers le dashboard de l'utilisateur après 2 secondes
+        // Rediriger vers le dashboard avec l'utilisateur actif
         setTimeout(() => {
-          navigate(`/dashboard?userId=${result.id}`);
+          navigate('/dashboard');
         }, 2000);
       } else {
         throw new Error('Erreur lors de l\'enregistrement');
@@ -116,7 +157,10 @@ const RegisterActor = () => {
   };
 
   const isFormValid = () => {
-    return Object.values(formData).every(value => value.trim() !== '');
+    const allFieldsFilled = Object.values(formData).every(value => value.trim() !== '');
+    const locationValid = formData.region && formData.localite ? 
+      senegalLocationService.validateLocation(formData.localite, formData.region) : false;
+    return allFieldsFilled && locationValid;
   };
 
   return (
@@ -144,7 +188,15 @@ const RegisterActor = () => {
         {/* Formulaire */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-blue-800">Informations de l'Acteur</CardTitle>
+            <CardTitle className="text-blue-800 flex items-center space-x-2">
+              <span>Informations de l'Acteur</span>
+              {locationCoordinates && (
+                <div className="flex items-center space-x-1 text-sm text-green-600">
+                  <MapPin className="h-4 w-4" />
+                  <span>Géolocalisé</span>
+                </div>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -187,7 +239,7 @@ const RegisterActor = () => {
                 </Select>
               </div>
 
-              {/* Localisation */}
+              {/* Localisation avec autocomplete */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="region">Région *</Label>
@@ -203,12 +255,12 @@ const RegisterActor = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="localite">Localité *</Label>
-                  <Input
-                    id="localite"
+                  <LocationAutocomplete
+                    label="Localité"
                     value={formData.localite}
-                    onChange={(e) => handleInputChange('localite', e.target.value)}
-                    placeholder="Ex: Taiba Ndiaye, Mbour..."
+                    onChange={handleLocationChange}
+                    region={formData.region}
+                    placeholder="Tapez pour chercher une localité..."
                     required
                   />
                 </div>
@@ -285,6 +337,19 @@ const RegisterActor = () => {
                   Précisez la culture spécifique (mil, riz, maïs, niébé, arachide, etc.)
                 </p>
               </div>
+
+              {/* Affichage des coordonnées si disponibles */}
+              {locationCoordinates && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="font-medium text-green-800 mb-1">Géolocalisation confirmée</h4>
+                  <p className="text-sm text-green-700">
+                    Latitude: {locationCoordinates.lat.toFixed(4)}, Longitude: {locationCoordinates.lng.toFixed(4)}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Les données météo seront récupérées pour cette position exacte
+                  </p>
+                </div>
+              )}
 
               {/* Bouton de soumission */}
               <div className="flex justify-end pt-6">
