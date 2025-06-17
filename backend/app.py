@@ -6,6 +6,7 @@ from routes.irrigation import irrigation_bp
 from routes.weather import weather_bp
 from routes.mqtt import mqtt_bp
 from routes.logs import logs_bp
+from routes.actors import actors_bp
 import os
 
 def create_app():
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(weather_bp, url_prefix='/api')
     app.register_blueprint(mqtt_bp, url_prefix='/api')
     app.register_blueprint(logs_bp, url_prefix='/api')
+    app.register_blueprint(actors_bp, url_prefix='/api')
     
     @app.route('/api/health', methods=['GET'])
     def health_check():
@@ -42,7 +44,9 @@ def create_app():
             "endpoints": [
                 "/api/arroser", 
                 "/api/mqtt/test-publish", 
-                "/api/irrigation/status"
+                "/api/irrigation/status",
+                "/api/actors/register",
+                "/api/actors/list"
             ]
         }), 200
     
@@ -52,4 +56,5 @@ if __name__ == '__main__':
     app = create_app()
     print("🚀 Backend Flask LOCAL - http://localhost:5002")
     print("✅ Configuré pour frontend sur localhost:8080")
+    print("✅ Nouvelles routes acteurs disponibles")
     app.run(debug=True, host='localhost', port=5002)

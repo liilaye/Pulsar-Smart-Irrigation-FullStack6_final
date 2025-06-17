@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BackendConnectionStatus } from './BackendConnectionStatus';
 import { WelcomeBanner } from './WelcomeBanner';
+import { ActorRegistrationButton } from './ActorRegistrationButton';
 import { Footer } from './Footer';
 import { DashboardSections } from './dashboard/DashboardSections';
 import { useWeather } from '@/hooks/useWeather';
@@ -31,11 +32,9 @@ export const Dashboard = () => {
       const chartData = irrigationDataService.generateChartData();
       const dailyData = chartData.daily;
       
-      // Récupérer toutes les valeurs non-nulles
       const manualValues = dailyData.map(d => d.manualQuantity).filter(v => v > 0);
       const mlValues = dailyData.map(d => d.mlQuantity).filter(v => v > 0);
       
-      // Calculer max et min pour chaque type
       const manualMax = manualValues.length > 0 ? Math.max(...manualValues) : 0;
       const manualMin = manualValues.length > 0 ? Math.min(...manualValues) : 0;
       const manualCurrent = dailyData[dailyData.length - 1]?.manualQuantity || 0;
@@ -59,7 +58,7 @@ export const Dashboard = () => {
     };
 
     analyzeMinMax();
-    const interval = setInterval(analyzeMinMax, 5 * 60 * 1000); // Analyse toutes les 5 minutes
+    const interval = setInterval(analyzeMinMax, 5 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, []);
@@ -80,6 +79,11 @@ export const Dashboard = () => {
       <div className="flex-1 space-y-8">
         {/* Bannière de bienvenue */}
         <WelcomeBanner />
+        
+        {/* Nouveau bouton d'enregistrement d'acteur */}
+        <section className="mb-6">
+          <ActorRegistrationButton />
+        </section>
         
         {/* Section Statut Backend */}
         <section className="mb-6">
