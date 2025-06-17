@@ -52,20 +52,20 @@ export const ScheduleControl = () => {
       if (data.success) {
         setAiAnalysis(data.analyzed_schedules);
         toast({
-          title: "✅ Planning optimisé par IA",
+          title: "Planning optimisé par IA",
           description: "Le planning a été analysé et optimisé automatiquement par l'IA Flask.",
         });
       } else {
         toast({
-          title: "❌ Erreur",
+          title: "Erreur",
           description: data.message,
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error('❌ Erreur envoi planning:', error);
+      console.error('Erreur envoi planning:', error);
       toast({
-        title: "❌ Erreur de connexion",
+        title: "Erreur de connexion",
         description: "Impossible de communiquer avec le backend Flask",
         variant: "destructive"
       });
@@ -75,7 +75,7 @@ export const ScheduleControl = () => {
   };
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Clock className="h-5 w-5" />
@@ -154,8 +154,8 @@ export const ScheduleControl = () => {
 
         {/* Statut de connexion */}
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>Backend Flask: {isBackendConnected ? '🟢 Connecté' : '🔴 Déconnecté'}</span>
-          <span>Analyse IA: {aiAnalysis ? '✅ Configurée' : '⏸️ En attente'}</span>
+          <span>Backend Flask: {isBackendConnected ? 'Connecté' : 'Déconnecté'}</span>
+          <span>Analyse IA: {aiAnalysis ? 'Configurée' : 'En attente'}</span>
         </div>
       </CardContent>
     </Card>
