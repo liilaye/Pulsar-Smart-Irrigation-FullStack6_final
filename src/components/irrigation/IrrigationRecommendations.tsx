@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, Droplets, Thermometer, Wind, Cloud, Leaf } from 'lucide-react';
+import { Lightbulb, Droplets, Cloud, Leaf } from 'lucide-react';
 import { useWeather } from '@/hooks/useWeather';
 import { backendService } from '@/services/backendService';
 
@@ -10,19 +10,17 @@ interface NPKRecommendation {
   nitrogen: string;
   phosphorus: string;
   potassium: string;
-  status: 'optimal' | 'low' | 'high';
+  fertilizerAdvice: string;
 }
 
 interface IrrigationAdvice {
   recommendedDuration: string;
   recommendedVolume: string;
-  weatherImpact: string;
-  soilCondition: string;
   npkAdvice: NPKRecommendation;
 }
 
 export const IrrigationRecommendations = () => {
-  const { weatherData } = useWeather('thies');
+  const { weatherData } = useWeather('taiba-ndiaye'); // Région cible
   const [advice, setAdvice] = useState<IrrigationAdvice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,57 +29,43 @@ export const IrrigationRecommendations = () => {
       setIsLoading(true);
       
       try {
-        // Utiliser les données par défaut ou les données météo réelles
         const features = backendService.getDefaultSoilClimateFeatures();
         
-        // Si on a des données météo, les intégrer
         if (weatherData) {
           const temp = parseFloat(weatherData.temperature.replace('°C', ''));
           const humidity = parseFloat(weatherData.humidity.replace('%', ''));
           const windSpeed = parseFloat(weatherData.windSpeed.replace(' km/h', ''));
           const precipitation = parseFloat(weatherData.precipitation.replace(' mm', ''));
           
-          features[0] = temp; // Température air
-          features[1] = precipitation; // Précipitation
-          features[2] = humidity; // Humidité air
-          features[3] = windSpeed; // Vent moyen
+          features[0] = temp;
+          features[1] = precipitation;
+          features[2] = humidity;
+          features[3] = windSpeed;
         }
 
-        // Obtenir une recommandation ML
         const mlResult = await backendService.getMLRecommendation(features);
         
-        // Générer des conseils basés sur les conditions
-        const temperature = features[0];
-        const humidity = features[2];
-        const soilMoisture = features[7];
         const nitrogen = features[10];
         const phosphorus = features[11];
         const potassium = features[12];
-
-        const weatherImpact = getWeatherImpact(temperature, humidity, features[1]);
-        const soilCondition = getSoilCondition(soilMoisture, features[9]);
+        
         const npkAdvice = getNPKAdvice(nitrogen, phosphorus, potassium);
         
         setAdvice({
           recommendedDuration: `${Math.round(mlResult.duree_minutes)} minutes`,
           recommendedVolume: `${(mlResult.volume_eau_m3 * 1000).toFixed(0)} litres`,
-          weatherImpact,
-          soilCondition,
           npkAdvice
         });
       } catch (error) {
         console.error('Erreur génération conseils:', error);
-        // Conseils par défaut en cas d'erreur
         setAdvice({
           recommendedDuration: '25-35 minutes',
           recommendedVolume: '400-600 litres',
-          weatherImpact: 'Conditions modérées - arrosage standard recommandé',
-          soilCondition: 'Sol en bon état - surveillance régulière conseillée',
           npkAdvice: {
-            nitrogen: 'Niveau modéré',
-            phosphorus: 'Niveau acceptable',
-            potassium: 'Niveau optimal',
-            status: 'optimal'
+            nitrogen: 'N: 45 mg/kg',
+            phosphorus: 'P: 35 mg/kg',
+            potassium: 'K: 150 mg/kg',
+            fertilizerAdvice: 'Apport NPK 15-15-15: 200g/m² recommandé pour Taïba Ndiaye'
           }
         });
       } finally {
@@ -92,56 +76,25 @@ export const IrrigationRecommendations = () => {
     generateAdvice();
   }, [weatherData]);
 
-  const getWeatherImpact = (temp: number, humidity: number, precipitation: number): string => {
-    if (temp > 30 && humidity < 50) {
-      return 'Conditions chaudes et sèches - augmenter la durée d\'arrosage de 20%';
-    } else if (temp < 20 && humidity > 80) {
-      return 'Conditions fraîches et humides - réduire la durée d\'arrosage de 15%';
-    } else if (precipitation > 5) {
-      return 'Pluie récente détectée - reporter ou réduire l\'arrosage';
-    } else {
-      return 'Conditions météo favorables pour un arrosage standard';
-    }
-  };
-
-  const getSoilCondition = (soilMoisture: number, pH: number): string => {
-    let condition = '';
-    
-    if (soilMoisture < 30) {
-      condition += 'Sol sec - arrosage nécessaire. ';
-    } else if (soilMoisture > 70) {
-      condition += 'Sol saturé - éviter le sur-arrosage. ';
-    } else {
-      condition += 'Humidité du sol correcte. ';
-    }
-
-    if (pH < 6.0) {
-      condition += 'pH acide - considérer un amendement calcaire.';
-    } else if (pH > 8.0) {
-      condition += 'pH basique - surveiller l\'absorption des nutriments.';
-    } else {
-      condition += 'pH optimal pour la croissance.';
-    }
-
-    return condition;
-  };
-
   const getNPKAdvice = (nitrogen: number, phosphorus: number, potassium: number): NPKRecommendation => {
-    const nStatus = nitrogen < 30 ? 'Faible' : nitrogen > 80 ? 'Élevé' : 'Optimal';
-    const pStatus = phosphorus < 25 ? 'Faible' : phosphorus > 60 ? 'Élevé' : 'Optimal';
-    const kStatus = potassium < 100 ? 'Faible' : potassium > 200 ? 'Élevé' : 'Optimal';
+    // Calcul des déficits pour Taïba Ndiaye (zone côtière)
+    const nDeficit = Math.max(0, 50 - nitrogen);
+    const pDeficit = Math.max(0, 40 - phosphorus);
+    const kDeficit = Math.max(0, 160 - potassium);
     
-    const overallStatus = (nStatus === 'Optimal' && pStatus === 'Optimal' && kStatus === 'Optimal') 
-      ? 'optimal' 
-      : (nStatus === 'Faible' || pStatus === 'Faible' || kStatus === 'Faible') 
-        ? 'low' 
-        : 'high';
+    let fertilizerAdvice = '';
+    if (nDeficit > 0 || pDeficit > 0 || kDeficit > 0) {
+      const npkAmount = Math.max(150, (nDeficit + pDeficit + kDeficit) * 3);
+      fertilizerAdvice = `Apport NPK 15-15-15: ${npkAmount}g/m² recommandé pour Taïba Ndiaye`;
+    } else {
+      fertilizerAdvice = 'Équilibre nutritif optimal - maintenir apports actuels';
+    }
 
     return {
-      nitrogen: `N: ${nStatus} (${nitrogen.toFixed(0)} mg/kg)`,
-      phosphorus: `P: ${pStatus} (${phosphorus.toFixed(0)} mg/kg)`,
-      potassium: `K: ${kStatus} (${potassium.toFixed(0)} mg/kg)`,
-      status: overallStatus
+      nitrogen: `N: ${nitrogen.toFixed(0)} mg/kg${nDeficit > 0 ? ` (déficit: ${nDeficit.toFixed(0)})` : ''}`,
+      phosphorus: `P: ${phosphorus.toFixed(0)} mg/kg${pDeficit > 0 ? ` (déficit: ${pDeficit.toFixed(0)})` : ''}`,
+      potassium: `K: ${potassium.toFixed(0)} mg/kg${kDeficit > 0 ? ` (déficit: ${kDeficit.toFixed(0)})` : ''}`,
+      fertilizerAdvice
     };
   };
 
@@ -171,80 +124,61 @@ export const IrrigationRecommendations = () => {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Lightbulb className="h-5 w-5 text-yellow-500" />
-            <span className="text-lg">Recommandations IA Prédictive</span>
+            <span className="text-lg">Guide d'Arrosage Manuel</span>
           </div>
-          <Badge variant={advice?.npkAdvice.status === 'optimal' ? 'default' : 'secondary'}>
-            {advice?.npkAdvice.status === 'optimal' ? 'Optimal' : 'À surveiller'}
-          </Badge>
+          <Badge variant="secondary">Taïba Ndiaye</Badge>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="space-y-4">
         {/* Recommandations d'arrosage */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border">
-            <Droplets className="h-5 w-5 text-blue-500" />
+          <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border shadow-sm">
+            <Droplets className="h-6 w-6 text-blue-500" />
             <div>
               <div className="text-sm font-medium text-gray-700">Durée recommandée</div>
-              <div className="text-lg font-bold text-blue-600">{advice?.recommendedDuration}</div>
+              <div className="text-xl font-bold text-blue-600">{advice?.recommendedDuration}</div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border">
-            <Cloud className="h-5 w-5 text-green-500" />
+          <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border shadow-sm">
+            <Cloud className="h-6 w-6 text-green-500" />
             <div>
               <div className="text-sm font-medium text-gray-700">Volume estimé</div>
-              <div className="text-lg font-bold text-green-600">{advice?.recommendedVolume}</div>
+              <div className="text-xl font-bold text-green-600">{advice?.recommendedVolume}</div>
             </div>
           </div>
         </div>
 
-        {/* Impact météorologique */}
-        <div className="p-3 bg-white rounded-lg border">
-          <div className="flex items-start space-x-2">
-            <Thermometer className="h-5 w-5 text-orange-500 mt-1" />
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Impact Météorologique</div>
-              <div className="text-sm text-gray-600">{advice?.weatherImpact}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Condition du sol */}
-        <div className="p-3 bg-white rounded-lg border">
-          <div className="flex items-start space-x-2">
+        {/* Analyse Nutritive NPK */}
+        <div className="p-4 bg-white rounded-lg border shadow-sm">
+          <div className="flex items-start space-x-2 mb-3">
             <Leaf className="h-5 w-5 text-green-500 mt-1" />
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Condition du Sol</div>
-              <div className="text-sm text-gray-600">{advice?.soilCondition}</div>
-            </div>
+            <div className="text-sm font-medium text-gray-700">Analyse Nutritive (NPK)</div>
           </div>
-        </div>
-
-        {/* Analyse NPK */}
-        <div className="p-3 bg-white rounded-lg border">
-          <div className="flex items-start space-x-2">
-            <Wind className="h-5 w-5 text-purple-500 mt-1" />
-            <div className="w-full">
-              <div className="text-sm font-medium text-gray-700 mb-2">Analyse Nutritive (NPK)</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                  {advice?.npkAdvice.nitrogen}
-                </span>
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
-                  {advice?.npkAdvice.phosphorus}
-                </span>
-                <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                  {advice?.npkAdvice.potassium}
-                </span>
-              </div>
-            </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+            <span className="px-3 py-2 bg-blue-100 text-blue-800 rounded text-sm">
+              {advice?.npkAdvice.nitrogen}
+            </span>
+            <span className="px-3 py-2 bg-green-100 text-green-800 rounded text-sm">
+              {advice?.npkAdvice.phosphorus}
+            </span>
+            <span className="px-3 py-2 bg-orange-100 text-orange-800 rounded text-sm">
+              {advice?.npkAdvice.potassium}
+            </span>
+          </div>
+          
+          <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p className="text-sm font-medium text-yellow-800">
+              💡 {advice?.npkAdvice.fertilizerAdvice}
+            </p>
           </div>
         </div>
 
         {/* Note informative */}
         <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          💡 Recommandations basées sur l'analyse prédictive IA et les conditions agro-climatiques actuelles
+          🎯 Recommandations spécifiques pour l'arrosage manuel en région de Taïba Ndiaye
         </div>
       </CardContent>
     </Card>
