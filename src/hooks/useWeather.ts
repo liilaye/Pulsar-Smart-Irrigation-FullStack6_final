@@ -14,27 +14,34 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
       setError(null);
       
       try {
-        console.log(`🌤️ Tentative récupération données OpenWeather pour ${location}`);
+        console.log(`🌤️ DEBUG: Hook - Tentative récupération données pour ${location}`);
         const data = await weatherService.getRealTimeWeatherData(location);
         
         if (data) {
+          console.log(`🔍 DEBUG: Hook - Données reçues:`, data);
+          console.log(`🔍 DEBUG: Hook - isRealData dans les données: ${data.isRealData}`);
+          
           setWeatherData(data);
-          // Utiliser le flag isRealData directement des données
+          
+          // Utiliser directement le flag isRealData des données
           const usingRealData = data.isRealData === true;
           setIsRealData(usingRealData);
           
+          console.log(`🔍 DEBUG: Hook - usingRealData final: ${usingRealData}`);
+          
           if (usingRealData) {
-            console.log(`✅ Données OpenWeather temps réel chargées pour ${location}`);
+            console.log(`✅ DEBUG: Hook - Données OpenWeather temps réel confirmées pour ${location}`);
             setError(null);
           } else {
-            console.log(`🔄 Utilisation données de secours pour ${location}`);
-            setError(null); // Ne plus afficher d'erreur pour les données de secours
+            console.log(`🔄 DEBUG: Hook - Utilisation données de secours pour ${location}`);
+            setError(null); // Ne pas afficher d'erreur pour les données de secours
           }
         } else {
+          console.error('❌ DEBUG: Hook - Aucune donnée météo disponible');
           throw new Error('Aucune donnée météo disponible');
         }
       } catch (err) {
-        console.error('❌ Erreur complète chargement météo:', err);
+        console.error('❌ DEBUG: Hook - Erreur complète chargement météo:', err);
         setError('Erreur de connexion météo');
       } finally {
         setIsLoading(false);
@@ -48,6 +55,8 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
     
     return () => clearInterval(interval);
   }, [location]);
+
+  console.log(`🔍 DEBUG: Hook - État final: isRealData=${isRealData}, error=${error}, weatherData exists=${!!weatherData}`);
 
   return { weatherData, isLoading, error, isRealData };
 };
