@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,31 +19,41 @@ interface IrrigationAdvice {
 }
 
 export const IrrigationRecommendations = () => {
-  const { weatherData } = useWeather('taiba-ndiaye'); // Région cible
+  const { weatherData } = useWeather('taiba-ndiaye');
   const [advice, setAdvice] = useState<IrrigationAdvice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
 
-  useEffect(() => {
-    const generateAdvice = async () => {
-      setIsLoading(true);
+  // Générer les features en temps réel selon les données disponibles
+  const generateCurrentFeatures = () => {
+    const features = backendService.getDefaultSoilClimateFeatures();
+    
+    if (weatherData) {
+      const temp = parseFloat(weatherData.temperature.replace('°C', ''));
+      const humidity = parseFloat(weatherData.humidity.replace('%', ''));
+      const windSpeed = parseFloat(weatherData.windSpeed.replace(' km/h', ''));
+      const precipitation = parseFloat(weatherData.precipitation.replace(' mm', ''));
       
-      try {
-        const features = backendService.getDefaultSoilClimateFeatures();
-        
-        if (weatherData) {
-          const temp = parseFloat(weatherData.temperature.replace('°C', ''));
-          const humidity = parseFloat(weatherData.humidity.replace('%', ''));
-          const windSpeed = parseFloat(weatherData.windSpeed.replace(' km/h', ''));
-          const precipitation = parseFloat(weatherData.precipitation.replace(' mm', ''));
-          
-          features[0] = temp;
-          features[1] = precipitation;
-          features[2] = humidity;
-          features[3] = windSpeed;
-        }
+      features[0] = temp;        // Température_air_(°C)
+      features[1] = precipitation; // Précipitation_(mm)
+      features[2] = humidity;     // Humidité_air_(%)
+      features[3] = windSpeed;    // Vent_moyen_(km/h)
+    }
+    
+    return features;
+  };
 
-        const mlResult = await backendService.getMLRecommendation(features);
-        
+  const generateAdvice = async () => {
+    setIsLoading(true);
+    
+    try {
+      console.log('🔄 Génération recommandation ML temps réel...');
+      const features = generateCurrentFeatures();
+      
+      // Utiliser getMLRecommendation au lieu de arroserAvecML pour éviter démarrage auto
+      const mlResult = await backendService.getMLRecommendation(features);
+      
+      if (mlResult && mlResult.status === 'ok') {
         const nitrogen = features[10];
         const phosphorus = features[11];
         const potassium = features[12];
@@ -56,25 +65,29 @@ export const IrrigationRecommendations = () => {
           recommendedVolume: `${(mlResult.volume_eau_m3 * 1000).toFixed(0)} litres`,
           npkAdvice
         });
-      } catch (error) {
-        console.error('Erreur génération conseils:', error);
-        setAdvice({
-          recommendedDuration: '25-35 minutes',
-          recommendedVolume: '400-600 litres',
-          npkAdvice: {
-            nitrogen: 'N: 45 mg/kg',
-            phosphorus: 'P: 35 mg/kg',
-            potassium: 'K: 150 mg/kg',
-            fertilizerAdvice: 'Apport NPK 15-15-15: 200g/m² recommandé pour Taïba Ndiaye'
-          }
-        });
-      } finally {
-        setIsLoading(false);
+        
+        setLastUpdateTime(Date.now());
+        console.log('✅ Recommandations ML mises à jour:', mlResult);
+      } else {
+        throw new Error('Réponse ML invalide');
       }
-    };
-
-    generateAdvice();
-  }, [weatherData]);
+    } catch (error) {
+      console.error('❌ Erreur génération recommandations ML:', error);
+      // Fallback avec valeurs par défaut
+      setAdvice({
+        recommendedDuration: '25-35 minutes',
+        recommendedVolume: '400-600 litres',
+        npkAdvice: {
+          nitrogen: 'N: 45 mg/kg',
+          phosphorus: 'P: 35 mg/kg',
+          potassium: 'K: 150 mg/kg',
+          fertilizerAdvice: 'Apport NPK 15-15-15: 200g/m² recommandé pour Taïba Ndiaye'
+        }
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getNPKAdvice = (nitrogen: number, phosphorus: number, potassium: number): NPKRecommendation => {
     // Calcul des déficits pour Taïba Ndiaye (zone côtière)
@@ -97,6 +110,20 @@ export const IrrigationRecommendations = () => {
       fertilizerAdvice
     };
   };
+
+  // Générer les recommandations au chargement et quand les données météo changent
+  useEffect(() => {
+    generateAdvice();
+  }, [weatherData]);
+
+  // Rafraîchir automatiquement toutes les 2 minutes pour synchronisation temps réel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      generateAdvice();
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -176,9 +203,14 @@ export const IrrigationRecommendations = () => {
           </div>
         </div>
 
-        {/* Note informative */}
+        {/* Note informative avec timestamp */}
         <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          Recommandations optimisées pour l'arrosage manuel en région de Taïba Ndiaye
+          Recommandations ML optimisées en temps réel pour Taïba Ndiaye
+          {lastUpdateTime > 0 && (
+            <span className="block text-green-600 mt-1">
+              Dernière mise à jour: {new Date(lastUpdateTime).toLocaleTimeString()}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -16,7 +16,8 @@ import {
   BarChart3,
   Lightbulb,
   Droplets,
-  Bot
+  Bot,
+  MapPin
 } from 'lucide-react';
 
 const menuItems = [
@@ -44,6 +45,11 @@ const menuItems = [
     title: "Analyses et Graphiques",
     sectionId: "analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Localisation PulsarInfinite",
+    sectionId: "device-location",
+    icon: MapPin,
   },
 ];
 
