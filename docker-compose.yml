@@ -1,0 +1,103 @@
+
+version: '3.8'
+
+services:
+  # Frontend React avec Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pulsar-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - pulsar-network
+    restart: unless-stopped
+
+  # Backend Flask
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pulsar-backend
+    ports:
+      - "5002:5002"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=sqlite:///data/irrigation_logs.db
+      - MQTT_BROKER_HOST=217.182.210.54
+      - MQTT_BROKER_PORT=1883
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-pulsar-production-key}
+    volumes:
+      - backend_data:/app/data
+      - ./backend/models:/app/models:ro
+    networks:
+      - pulsar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Base de données PostgreSQL (alternative à SQLite pour production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: pulsar-postgres
+    environment:
+      - POSTGRES_DB=pulsar_irrigation
+      - POSTGRES_USER=pulsar_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pulsar_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - pulsar-network
+    restart: unless-stopped
+
+  # Redis pour la mise en cache et sessions
+  redis:
+    image: redis:7-alpine
+    container_name: pulsar-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pulsar-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Monitoring avec Portainer (optionnel)
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: pulsar-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - pulsar-network
+    restart: unless-stopped
+
+# Volumes persistants
+volumes:
+  backend_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  portainer_data:
+    driver: local
+
+# Réseau personnalisé
+networks:
+  pulsar-network:
+    driver: bridge

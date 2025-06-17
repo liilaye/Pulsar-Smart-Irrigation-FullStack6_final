@@ -45,7 +45,7 @@ export const DashboardSections = () => {
       </section>
       
       {/* Section Analyses et Graphiques */}
-      <AnalyticsSection irrigationAnalysis={null} />
+      <AnalyticsSection />
       
       {/* Section Localisation PulsarInfinite - nouvelle section en bas */}
       <section id="device-location" className="scroll-mt-6">

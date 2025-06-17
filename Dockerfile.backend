@@ -1,0 +1,42 @@
+
+# Dockerfile pour le Backend Flask
+FROM python:3.11-slim
+
+# Variables d'environnement
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Répertoire de travail
+WORKDIR /app
+
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier les fichiers de dépendances
+COPY backend/requirements.txt .
+
+# Installer les dépendances Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code du backend
+COPY backend/ .
+
+# Créer les répertoires nécessaires
+RUN mkdir -p /app/models /app/logs
+
+# Permissions pour la base de données
+RUN mkdir -p /app/data && chmod 755 /app/data
+
+# Exposer le port Flask
+EXPOSE 5002
+
+# Variables d'environnement par défaut
+ENV FLASK_ENV=production
+ENV DATABASE_URL=sqlite:///data/irrigation_logs.db
+ENV MQTT_BROKER_HOST=217.182.210.54
+ENV MQTT_BROKER_PORT=1883
+
+# Commande de démarrage
+CMD ["python", "app.py"]
