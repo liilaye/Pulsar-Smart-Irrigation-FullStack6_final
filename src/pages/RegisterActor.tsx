@@ -112,7 +112,17 @@ const RegisterActor = () => {
 
       console.log('📝 Envoi des données acteur avec coordonnées:', { ...formData, coordinates });
       
-      const response = await fetch('/api/actors/register', {
+      // Test de connexion backend d'abord
+      console.log('🔍 Test de connexion backend...');
+      const healthResponse = await fetch('http://localhost:5002/api/health');
+      
+      if (!healthResponse.ok) {
+        throw new Error('Backend Flask non accessible. Vérifiez que le serveur tourne sur le port 5002.');
+      }
+      
+      console.log('✅ Backend accessible, envoi des données...');
+      
+      const response = await fetch('http://localhost:5002/api/actors/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -142,13 +152,27 @@ const RegisterActor = () => {
           navigate('/dashboard');
         }, 2000);
       } else {
-        throw new Error('Erreur lors de l\'enregistrement');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'enregistrement');
       }
     } catch (error) {
       console.error('❌ Erreur enregistrement acteur:', error);
+      
+      let errorMessage = "Impossible d'enregistrer l'acteur.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Backend Flask non accessible')) {
+          errorMessage = "Backend Flask non accessible. Démarrez le serveur avec: cd backend && python app.py";
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Connexion impossible au backend. Vérifiez que Flask tourne sur localhost:5002";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Erreur",
-        description: "Impossible d'enregistrer l'acteur. Veuillez réessayer.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

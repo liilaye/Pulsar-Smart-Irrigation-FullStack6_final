@@ -8,10 +8,16 @@ import { IrrigationRecommendations } from '../irrigation/IrrigationRecommendatio
 import { SimpleManualControl } from '../irrigation/SimpleManualControl';
 import { SimpleMLControl } from '../irrigation/SimpleMLControl';
 import { DeviceLocationMap } from '../DeviceLocationMap';
+import { BackendConnectionStatus } from '../BackendConnectionStatus';
 
 export const DashboardSections = () => {
   return (
     <>
+      {/* Section État Backend - pour diagnostic */}
+      <section className="scroll-mt-6">
+        <BackendConnectionStatus />
+      </section>
+
       {/* Section Recommandations d'Arrosage */}
       <section id="recommendations" className="scroll-mt-6">
         <IrrigationRecommendations />
