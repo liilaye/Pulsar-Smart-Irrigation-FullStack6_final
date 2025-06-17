@@ -13,14 +13,27 @@ import {
 import { 
   Home, 
   Thermometer, 
-  BarChart3
+  BarChart3,
+  Lightbulb,
+  Droplets,
+  Bot
 } from 'lucide-react';
 
 const menuItems = [
   {
-    title: "Tableau de bord",
-    sectionId: "dashboard",
-    icon: Home,
+    title: "Recommandations d'Arrosage",
+    sectionId: "recommendations",
+    icon: Lightbulb,
+  },
+  {
+    title: "Arrosage Manuel",
+    sectionId: "manual-irrigation", 
+    icon: Droplets,
+  },
+  {
+    title: "Irrigation Intelligente ML",
+    sectionId: "ml-irrigation",
+    icon: Bot,
   },
   {
     title: "Paramètres Agro-climatiques",

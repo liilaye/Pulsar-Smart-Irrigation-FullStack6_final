@@ -6,6 +6,9 @@ import { AgroClimateParams } from '../AgroClimateParams';
 import { WeatherSection } from './WeatherSection';
 import { AnalyticsSection } from './AnalyticsSection';
 import { WeatherData } from '@/services/weatherService';
+import { IrrigationRecommendations } from '../irrigation/IrrigationRecommendations';
+import { SimpleManualControl } from '../irrigation/SimpleManualControl';
+import { SimpleMLControl } from '../irrigation/SimpleMLControl';
 
 interface IrrigationAnalysisData {
   manual: {
@@ -41,14 +44,24 @@ export const DashboardSections = ({
 }: DashboardSectionsProps) => {
   return (
     <>
-      {/* Section Contrôles d'irrigation - Pleine largeur */}
-      <section id="dashboard" className="scroll-mt-6">
-        <QuickControl />
+      {/* Section Recommandations d'Arrosage */}
+      <section id="recommendations" className="scroll-mt-6">
+        <IrrigationRecommendations />
       </section>
       
-      {/* Section Zone d'Irrigation - Séparée */}
+      {/* Section Zone d'Irrigation - Juste après recommandations */}
       <section className="scroll-mt-6">
         <IrrigationStatus />
+      </section>
+      
+      {/* Section Arrosage Manuel */}
+      <section id="manual-irrigation" className="scroll-mt-6">
+        <SimpleManualControl />
+      </section>
+      
+      {/* Section Irrigation Intelligente ML */}
+      <section id="ml-irrigation" className="scroll-mt-6">
+        <SimpleMLControl />
       </section>
       
       {/* Section Paramètres Agro-climatiques */}
