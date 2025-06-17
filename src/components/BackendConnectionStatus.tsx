@@ -69,9 +69,9 @@ export const BackendConnectionStatus = () => {
           <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800 font-medium">📋 Instructions de démarrage:</p>
             <ol className="text-xs text-yellow-700 mt-1 space-y-1 list-decimal list-inside">
-              <li>Naviguez vers le dossier backend: <code>cd backend</code></li>
-              <li>Installez les dépendances: <code>pip install -r requirements.txt</code></li>
-              <li>Démarrez le serveur: <code>python app.py</code></li>
+              <li>Naviguez vers le dossier backend: <code className="bg-yellow-100 px-1 rounded">cd backend</code></li>
+              <li>Installez les dépendances: <code className="bg-yellow-100 px-1 rounded">pip install -r requirements.txt</code></li>
+              <li>Démarrez le serveur: <code className="bg-yellow-100 px-1 rounded">python app.py</code></li>
             </ol>
           </div>
         )}
