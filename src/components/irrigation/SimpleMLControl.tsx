@@ -32,18 +32,53 @@ export const SimpleMLControl = () => {
     }
   }, [irrigationStatus.isActive, isActive]);
 
+  // Générer une recommandation ML sans démarrer l'irrigation
+  const generateMLRecommendation = async () => {
+    setIsLoading(true);
+    setLastAction('Génération recommandation ML...');
+
+    try {
+      console.log('🤖 Génération recommandation ML (sans démarrage)');
+      const features = backendService.getDefaultSoilClimateFeatures();
+      const response = await backendService.getMLRecommendation(features);
+      
+      if (response && response.status === 'ok') {
+        setRecommendation(response);
+        setLastAction(`Recommandation ML générée: ${Math.floor(response.duree_minutes)} min`);
+        toast.success("Recommandation ML générée", {
+          description: `Durée optimisée: ${Math.floor(response.duree_minutes)} minutes`
+        });
+      } else {
+        throw new Error('Réponse ML invalide');
+      }
+    } catch (error) {
+      console.error('❌ Erreur génération recommandation ML:', error);
+      setLastAction('Erreur génération recommandation ML');
+      toast.error("Erreur recommandation ML", {
+        description: "Impossible de générer la recommandation ML"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Démarrer l'irrigation ML avec la recommandation existante
   const handleStartML = async () => {
+    if (!recommendation) {
+      // Si pas de recommandation, la générer d'abord
+      await generateMLRecommendation();
+      return;
+    }
+
     setIsLoading(true);
     setLastAction('Démarrage irrigation ML...');
 
     try {
-      console.log('🤖 Démarrage irrigation ML automatique');
+      console.log('🤖 Démarrage irrigation ML contrôlé par admin');
       const features = backendService.getDefaultSoilClimateFeatures();
       const response = await backendService.arroserAvecML(features);
       
       if (response && response.status === 'ok') {
-        setRecommendation(response);
-        
         if (response.mqtt_started && response.auto_irrigation) {
           setLastAction(`Irrigation ML active: ${Math.floor(response.duree_minutes)} min`);
           toast.success("Irrigation ML démarrée", {
@@ -94,6 +129,13 @@ export const SimpleMLControl = () => {
       setIsLoading(false);
     }
   };
+
+  // Auto-générer une recommandation au chargement si pas encore fait
+  useEffect(() => {
+    if (isConnected && !recommendation && !isLoading) {
+      generateMLRecommendation();
+    }
+  }, [isConnected]);
 
   return (
     <Card className="w-full">
@@ -152,7 +194,7 @@ export const SimpleMLControl = () => {
               ) : (
                 <span className="mr-2">🤖</span>
               )}
-              Démarrer Irrigation ML
+              {recommendation ? 'Démarrer Irrigation ML' : 'Générer & Démarrer ML'}
             </Button>
             
             <Button
