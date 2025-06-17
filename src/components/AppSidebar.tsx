@@ -13,8 +13,7 @@ import {
 import { 
   Home, 
   Thermometer, 
-  BarChart3, 
-  Lightbulb
+  BarChart3
 } from 'lucide-react';
 
 const menuItems = [
@@ -32,11 +31,6 @@ const menuItems = [
     title: "Analyses et Graphiques",
     sectionId: "analytics",
     icon: BarChart3,
-  },
-  {
-    title: "Recommandations",
-    sectionId: "recommendations",
-    icon: Lightbulb,
   },
 ];
 

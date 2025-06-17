@@ -4,7 +4,6 @@ import { QuickControl } from './QuickControl';
 import { AgroClimateParams } from './AgroClimateParams';
 import { IrrigationStatus } from './IrrigationStatus';
 import { WaterChart } from './WaterChart';
-import { IrrigationRecommendations } from './irrigation/IrrigationRecommendations';
 import { BackendConnectionStatus } from './BackendConnectionStatus';
 import { WelcomeBanner } from './WelcomeBanner';
 import { Footer } from './Footer';
@@ -17,7 +16,7 @@ export const Dashboard = () => {
   const { weatherData, isLoading, error } = useWeather(selectedLocation);
 
   // Analyse des tendances basée sur les données du graphique avec stats min/max
-  const [chartStats, setChartStats] = useState<{
+  const [chartStats] = useState<{
     trend: 'increasing' | 'decreasing' | 'stable';
     minUsage: number;
     maxUsage: number;
@@ -44,15 +43,33 @@ export const Dashboard = () => {
     const { minUsage, maxUsage, avgUsage } = chartStats;
     
     if (maxUsage > 0.7) {
-      return "Consommation élevée détectée - Vérifier l'efficacité du système";
+      return {
+        title: "Usage Maximum Élevé",
+        description: `Pic d'utilisation à ${(maxUsage * 1000).toFixed(0)}L détecté. Vérifier l'efficacité du système d'arrosage et ajuster si nécessaire.`,
+        type: "warning"
+      };
     } else if (minUsage < 0.2) {
-      return "Périodes de faible utilisation optimales pour maintenance";
+      return {
+        title: "Période d'Usage Optimal",
+        description: `Usage minimum de ${(minUsage * 1000).toFixed(0)}L identifié. Période idéale pour maintenance préventive du système.`,
+        type: "info"
+      };
     } else if (avgUsage > 0.5) {
-      return "Usage moyen élevé - Surveiller les besoins en eau";
+      return {
+        title: "Consommation Moyenne Élevée",
+        description: `Usage moyen de ${(avgUsage * 1000).toFixed(0)}L observé. Surveiller les besoins en eau et optimiser les cycles d'arrosage.`,
+        type: "attention"
+      };
     } else {
-      return "Gestion hydrique dans les normes recommandées";
+      return {
+        title: "Gestion Hydrique Optimale",
+        description: `Usage équilibré entre ${(minUsage * 1000).toFixed(0)}L et ${(maxUsage * 1000).toFixed(0)}L. Maintenir les pratiques actuelles.`,
+        type: "success"
+      };
     }
   };
+
+  const analysis = getUsageAnalysis();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -124,7 +141,7 @@ export const Dashboard = () => {
                     <span>Précipitations:</span>
                     <span className="font-medium text-green-600">{weatherData.precipitation}</span>
                   </div>
-                  {weatherData.description && weatherData.description !== "Données locales simulées" && (
+                  {weatherData.description && (
                     <div className="flex justify-between items-center">
                       <span>Condition:</span>
                       <span className="font-medium text-purple-600">{weatherData.description}</span>
@@ -189,21 +206,33 @@ export const Dashboard = () => {
                     </span>
                   </div>
                   
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <strong>Analyse:</strong> {getUsageAnalysis()}
+                  <div className={`p-4 rounded-lg border ${
+                    analysis.type === 'warning' ? 'bg-red-50 border-red-200' :
+                    analysis.type === 'attention' ? 'bg-yellow-50 border-yellow-200' :
+                    analysis.type === 'info' ? 'bg-blue-50 border-blue-200' :
+                    'bg-green-50 border-green-200'
+                  }`}>
+                    <h4 className={`font-medium mb-2 ${
+                      analysis.type === 'warning' ? 'text-red-800' :
+                      analysis.type === 'attention' ? 'text-yellow-800' :
+                      analysis.type === 'info' ? 'text-blue-800' :
+                      'text-green-800'
+                    }`}>
+                      📊 {analysis.title}
+                    </h4>
+                    <p className={`text-sm ${
+                      analysis.type === 'warning' ? 'text-red-700' :
+                      analysis.type === 'attention' ? 'text-yellow-700' :
+                      analysis.type === 'info' ? 'text-blue-700' :
+                      'text-green-700'
+                    }`}>
+                      {analysis.description}
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </section>
-
-        {/* Section Recommandations (ancien Guide d'Arrosage) */}
-        <section id="recommendations" className="scroll-mt-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations</h2>
-          <IrrigationRecommendations />
         </section>
       </div>
       
