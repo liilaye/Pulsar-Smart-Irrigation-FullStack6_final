@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { senegalLocationService } from '@/services/senegalLocationService';
 import { activeUserService } from '@/services/activeUserService';
+import { api } from '@/services/apiService';
 
 const SENEGAL_REGIONS = [
   'Dakar', 'Thiès', 'Saint-Louis', 'Diourbel', 'Louga', 'Fatick', 
@@ -114,54 +115,39 @@ const RegisterActor = () => {
       
       // Test de connexion backend d'abord
       console.log('🔍 Test de connexion backend...');
-      const healthResponse = await fetch('http://localhost:5002/api/health');
-      
-      if (!healthResponse.ok) {
-        throw new Error('Backend Flask non accessible. Vérifiez que le serveur tourne sur le port 5002.');
-      }
-      
+      await api.checkHealth();
       console.log('✅ Backend accessible, envoi des données...');
       
-      const response = await fetch('http://localhost:5002/api/actors/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ ...formData, coordinates })
+      // Utiliser le service API au lieu d'appels directs
+      const result = await api.registerActor({ ...formData, coordinates });
+      
+      console.log('✅ Acteur enregistré:', result);
+      
+      // Définir cet utilisateur comme actif
+      const newUser = {
+        ...result.actor,
+        id: result.id,
+        coordinates
+      };
+      activeUserService.setActiveUser(newUser);
+      
+      toast({
+        title: "Succès !",
+        description: `${formData.prenom} ${formData.nom} enregistré avec succès. Redirection vers son dashboard...`,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Acteur enregistré:', result);
-        
-        // Définir cet utilisateur comme actif
-        const newUser = {
-          ...result.actor,
-          id: result.id,
-          coordinates
-        };
-        activeUserService.setActiveUser(newUser);
-        
-        toast({
-          title: "Succès !",
-          description: `${formData.prenom} ${formData.nom} enregistré avec succès. Redirection vers son dashboard...`,
-        });
-
-        // Rediriger vers le dashboard avec l'utilisateur actif
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de l\'enregistrement');
-      }
+      // Rediriger vers le dashboard avec l'utilisateur actif
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+      
     } catch (error) {
       console.error('❌ Erreur enregistrement acteur:', error);
       
       let errorMessage = "Impossible d'enregistrer l'acteur.";
       
       if (error instanceof Error) {
-        if (error.message.includes('Backend Flask non accessible')) {
+        if (error.message.includes('Backend Flask doit être démarré')) {
           errorMessage = "Backend Flask non accessible. Démarrez le serveur avec: cd backend && python app.py";
         } else if (error.message.includes('Failed to fetch')) {
           errorMessage = "Connexion impossible au backend. Vérifiez que Flask tourne sur localhost:5002";

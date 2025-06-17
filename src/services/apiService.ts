@@ -1,4 +1,3 @@
-
 // Service API pour développement local uniquement
 class ApiService {
   private baseUrl = '/api';
@@ -13,6 +12,30 @@ class ApiService {
     } catch (error) {
       console.error('❌ Backend Flask local non disponible:', error);
       throw new Error('Backend Flask doit être démarré sur localhost:5002');
+    }
+  }
+
+  async registerActor(actorData: any) {
+    try {
+      console.log('📝 Enregistrement acteur via API service:', actorData);
+      const response = await fetch(`${this.baseUrl}/actors/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(actorData),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Erreur enregistrement acteur:', error);
+      throw error;
     }
   }
 
