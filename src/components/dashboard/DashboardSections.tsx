@@ -7,6 +7,7 @@ import { AnalyticsSection } from './AnalyticsSection';
 import { IrrigationRecommendations } from '../irrigation/IrrigationRecommendations';
 import { SimpleManualControl } from '../irrigation/SimpleManualControl';
 import { SimpleMLControl } from '../irrigation/SimpleMLControl';
+import { DeviceLocationMap } from '../DeviceLocationMap';
 
 export const DashboardSections = () => {
   return (
@@ -39,6 +40,12 @@ export const DashboardSections = () => {
       
       {/* Section Analyses et Graphiques */}
       <AnalyticsSection irrigationAnalysis={null} />
+      
+      {/* Section Localisation PulsarInfinite - nouvelle section en bas */}
+      <section id="device-location" className="scroll-mt-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Localisation du Dispositif</h2>
+        <DeviceLocationMap />
+      </section>
     </>
   );
 };
