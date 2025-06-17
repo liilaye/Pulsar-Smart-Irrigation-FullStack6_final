@@ -10,6 +10,7 @@ interface WeatherData {
   visibility?: string;
   cloudCover?: string;
   feelsLike?: string;
+  weatherIcon?: string;
 }
 
 class WeatherService {
@@ -38,7 +39,6 @@ class WeatherService {
       console.log(`🌍 Récupération données météo temps réel pour ${location}...`);
       
       const response = await fetch(url, { 
-        timeout: 8000,
         headers: {
           'Accept': 'application/json'
         }
@@ -86,8 +86,24 @@ class WeatherService {
       pressure: `${data.main.pressure} hPa`,
       feelsLike: `${Math.round(data.main.feels_like)}°C`,
       visibility: data.visibility ? `${(data.visibility / 1000).toFixed(1)} km` : undefined,
-      cloudCover: data.clouds ? `${data.clouds.all}%` : undefined
+      cloudCover: data.clouds ? `${data.clouds.all}%` : undefined,
+      weatherIcon: this.getWeatherIcon(data.weather[0].icon)
     };
+  }
+
+  private getWeatherIcon(iconCode: string): string {
+    const iconMapping = {
+      "01d": "sun", "01n": "moon",
+      "02d": "cloud", "02n": "cloud",
+      "03d": "cloud", "03n": "cloud",
+      "04d": "cloud", "04n": "cloud",
+      "09d": "rain", "09n": "rain",
+      "10d": "rain", "10n": "rain",
+      "11d": "storm", "11n": "storm",
+      "13d": "snow", "13n": "snow",
+      "50d": "mist", "50n": "mist"
+    };
+    return iconMapping[iconCode] || "sun";
   }
 
   private getFallbackData(location: string): WeatherData {
@@ -118,7 +134,8 @@ class WeatherService {
         pressure: `${1014 + Math.floor(Math.random() * 8)} hPa`,
         feelsLike: `${30 + tempVariation}°C`,
         visibility: `${10 + Math.floor(Math.random() * 5)} km`,
-        cloudCover: `${Math.floor(Math.random() * 30)}%`
+        cloudCover: `${Math.floor(Math.random() * 30)}%`,
+        weatherIcon: 'sun'
       };
     } else {
       return {
@@ -131,7 +148,8 @@ class WeatherService {
         pressure: `${1010 + Math.floor(Math.random() * 6)} hPa`,
         feelsLike: `${27 + tempVariation}°C`,
         visibility: `${6 + Math.floor(Math.random() * 4)} km`,
-        cloudCover: `${60 + Math.floor(Math.random() * 30)}%`
+        cloudCover: `${60 + Math.floor(Math.random() * 30)}%`,
+        weatherIcon: 'rain'
       };
     }
   }
