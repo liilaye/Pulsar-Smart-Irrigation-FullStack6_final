@@ -6,6 +6,7 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRealData, setIsRealData] = useState(false);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -13,26 +14,28 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
       setError(null);
       
       try {
-        console.log(`🌤️ Fetch OpenWeather données pour ${location}`);
+        console.log(`🌤️ Tentative récupération données OpenWeather pour ${location}`);
         const data = await weatherService.getRealTimeWeatherData(location);
         
         if (data) {
           setWeatherData(data);
-          console.log(`✅ Données OpenWeather chargées pour ${location}:`, data);
+          // Vérifier si ce sont des vraies données ou de secours
+          const usingRealData = weatherService.isUsingRealData() && !data.description?.includes('Données locales');
+          setIsRealData(usingRealData);
+          
+          if (usingRealData) {
+            console.log(`✅ Données OpenWeather temps réel chargées pour ${location}`);
+            setError(null);
+          } else {
+            console.log(`🔄 Utilisation données de secours pour ${location}`);
+            setError('OpenWeather indisponible - Données de secours actives');
+          }
         } else {
-          throw new Error('Aucune donnée météo reçue');
+          throw new Error('Aucune donnée météo disponible');
         }
       } catch (err) {
-        console.error('❌ Erreur lors du chargement des données météo OpenWeather:', err);
-        setError('Erreur de connexion OpenWeather - Utilisation des données de secours');
-        
-        // Essayer les données de secours
-        try {
-          const fallbackData = await weatherService.getWeatherData(location);
-          setWeatherData(fallbackData);
-        } catch (fallbackErr) {
-          console.error('❌ Erreur données de secours:', fallbackErr);
-        }
+        console.error('❌ Erreur complète chargement météo:', err);
+        setError('Erreur de connexion météo');
       } finally {
         setIsLoading(false);
       }
@@ -40,11 +43,11 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
 
     fetchWeather();
     
-    // Actualiser toutes les 2 minutes pour les données temps réel OpenWeather
+    // Actualiser toutes les 2 minutes pour les données temps réel
     const interval = setInterval(fetchWeather, 2 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [location]);
 
-  return { weatherData, isLoading, error };
+  return { weatherData, isLoading, error, isRealData };
 };
