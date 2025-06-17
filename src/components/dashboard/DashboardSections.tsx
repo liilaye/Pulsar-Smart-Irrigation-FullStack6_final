@@ -1,57 +1,21 @@
 
 import React from 'react';
-import { QuickControl } from '../QuickControl';
-import { IrrigationStatus } from '../IrrigationStatus';
-import { AgroClimateParams } from '../AgroClimateParams';
+import { WeatherSection } from './WeatherSection';
 import { AnalyticsSection } from './AnalyticsSection';
-import { IrrigationRecommendations } from '../irrigation/IrrigationRecommendations';
-import { SimpleManualControl } from '../irrigation/SimpleManualControl';
-import { SimpleMLControl } from '../irrigation/SimpleMLControl';
-import { DeviceLocationMap } from '../DeviceLocationMap';
-import { BackendConnectionStatus } from '../BackendConnectionStatus';
 
-export const DashboardSections = () => {
+interface DashboardSectionsProps {
+  weatherData: any;
+  irrigationAnalysis: any;
+}
+
+export const DashboardSections = ({ weatherData }: DashboardSectionsProps) => {
   return (
-    <>
-      {/* Section État Backend - pour diagnostic */}
-      <section className="scroll-mt-6">
-        <BackendConnectionStatus />
-      </section>
-
-      {/* Section Recommandations d'Arrosage */}
-      <section id="recommendations" className="scroll-mt-6">
-        <IrrigationRecommendations />
-      </section>
+    <div className="space-y-8">
+      {/* Section Météo */}
+      <WeatherSection weatherData={weatherData} />
       
-      {/* Section Zone d'Irrigation */}
-      <section className="scroll-mt-6">
-        <IrrigationStatus />
-      </section>
-      
-      {/* Section Arrosage Manuel */}
-      <section id="manual-irrigation" className="scroll-mt-6">
-        <SimpleManualControl />
-      </section>
-      
-      {/* Section Irrigation Intelligente ML */}
-      <section id="ml-irrigation" className="scroll-mt-6">
-        <SimpleMLControl />
-      </section>
-      
-      {/* Section Paramètres Agro-climatiques - maintenant dynamique */}
-      <section id="sensors" className="scroll-mt-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Paramètres Agro-climatiques</h2>
-        <AgroClimateParams />
-      </section>
-      
-      {/* Section Analyses et Graphiques */}
-      <AnalyticsSection irrigationAnalysis={null} />
-      
-      {/* Section Localisation PulsarInfinite - nouvelle section en bas */}
-      <section id="device-location" className="scroll-mt-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Localisation du Dispositif</h2>
-        <DeviceLocationMap />
-      </section>
-    </>
+      {/* Section Analytics - plus besoin de passer irrigationAnalysis */}
+      <AnalyticsSection />
+    </div>
   );
 };
