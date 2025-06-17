@@ -38,6 +38,12 @@ if __name__ == '__main__':
         print(f"⚠️  Modèle ML non trouvé: {model_path}")
         print("📍 Placez xgboost_arrosage_litres.pkl dans backend/models/")
     
+    # Vérifier les permissions de la base de données
+    db_path = os.path.join(os.path.dirname(__file__), 'irrigation_logs.db')
+    if os.path.exists(db_path) and not os.access(db_path, os.W_OK):
+        print(f"⚠️  Base de données sans permission d'écriture: {db_path}")
+        print("🔧 Exécutez: chmod 666 irrigation_logs.db")
+    
     print("=" * 60)
     
     app.run(debug=True, host='0.0.0.0', port=5002, use_reloader=False)
