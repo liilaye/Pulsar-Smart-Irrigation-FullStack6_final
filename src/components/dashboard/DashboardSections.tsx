@@ -41,18 +41,14 @@ export const DashboardSections = ({
 }: DashboardSectionsProps) => {
   return (
     <>
-      {/* Section Tableau de bord principal avec nouvelle disposition */}
+      {/* Section Contrôles d'irrigation - Pleine largeur */}
       <section id="dashboard" className="scroll-mt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Section de contrôle occupe 2/3 de l'espace */}
-          <div className="lg:col-span-2">
-            <QuickControl />
-          </div>
-          {/* Section de statut occupe 1/3 de l'espace */}
-          <div className="lg:col-span-1">
-            <IrrigationStatus />
-          </div>
-        </div>
+        <QuickControl />
+      </section>
+      
+      {/* Section Zone d'Irrigation - Séparée */}
+      <section className="scroll-mt-6">
+        <IrrigationStatus />
       </section>
       
       {/* Section Paramètres Agro-climatiques */}
