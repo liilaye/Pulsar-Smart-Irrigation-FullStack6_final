@@ -36,6 +36,8 @@ def register_actor():
                 type_sol TEXT NOT NULL,
                 type_culture TEXT NOT NULL,
                 speculation TEXT NOT NULL,
+                coordinates_lat REAL,
+                coordinates_lng REAL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -44,8 +46,9 @@ def register_actor():
         # Insérer le nouvel acteur
         cursor = conn.execute('''
             INSERT INTO actors (prenom, nom, role, region, localite, superficie, 
-                              systeme_irrigation, type_sol, type_culture, speculation)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              systeme_irrigation, type_sol, type_culture, speculation,
+                              coordinates_lat, coordinates_lng)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['prenom'],
             data['nom'], 
@@ -56,7 +59,9 @@ def register_actor():
             data['systeme_irrigation'],
             data['type_sol'],
             data['type_culture'],
-            data['speculation']
+            data['speculation'],
+            data.get('coordinates', {}).get('lat'),
+            data.get('coordinates', {}).get('lng')
         ))
         
         actor_id = cursor.lastrowid
@@ -74,6 +79,88 @@ def register_actor():
         
     except Exception as e:
         logging.error(f"❌ Erreur enregistrement acteur: {e}")
+        return jsonify({"error": "Erreur interne du serveur"}), 500
+
+@actors_bp.route('/actors/<int:actor_id>', methods=['PUT'])
+def update_actor(actor_id):
+    """Modifier un acteur existant"""
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        
+        # Vérifier que l'acteur existe
+        cursor = conn.execute('SELECT id FROM actors WHERE id = ?', (actor_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"error": "Acteur non trouvé"}), 404
+        
+        # Mettre à jour l'acteur
+        conn.execute('''
+            UPDATE actors SET 
+                prenom = ?, nom = ?, role = ?, region = ?, localite = ?,
+                superficie = ?, systeme_irrigation = ?, type_sol = ?, 
+                type_culture = ?, speculation = ?, coordinates_lat = ?, coordinates_lng = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (
+            data['prenom'],
+            data['nom'],
+            data['role'], 
+            data['region'],
+            data['localite'],
+            int(data['superficie']),
+            data['systeme_irrigation'],
+            data['type_sol'],
+            data['type_culture'],
+            data['speculation'],
+            data.get('coordinates', {}).get('lat'),
+            data.get('coordinates', {}).get('lng'),
+            actor_id
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        logging.info(f"✅ Acteur modifié: {data['prenom']} {data['nom']} (ID: {actor_id})")
+        
+        return jsonify({
+            "success": True,
+            "message": "Acteur modifié avec succès",
+            "actor": data
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur modification acteur: {e}")
+        return jsonify({"error": "Erreur interne du serveur"}), 500
+
+@actors_bp.route('/actors/<int:actor_id>', methods=['DELETE'])
+def delete_actor(actor_id):
+    """Supprimer un acteur"""
+    try:
+        conn = get_db_connection()
+        
+        # Vérifier que l'acteur existe
+        cursor = conn.execute('SELECT prenom, nom FROM actors WHERE id = ?', (actor_id,))
+        actor = cursor.fetchone()
+        if not actor:
+            conn.close()
+            return jsonify({"error": "Acteur non trouvé"}), 404
+        
+        # Supprimer l'acteur
+        conn.execute('DELETE FROM actors WHERE id = ?', (actor_id,))
+        conn.commit()
+        conn.close()
+        
+        logging.info(f"✅ Acteur supprimé: {actor[0]} {actor[1]} (ID: {actor_id})")
+        
+        return jsonify({
+            "success": True,
+            "message": "Acteur supprimé avec succès"
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"❌ Erreur suppression acteur: {e}")
         return jsonify({"error": "Erreur interne du serveur"}), 500
 
 @actors_bp.route('/actors/list', methods=['GET'])
@@ -95,14 +182,15 @@ def list_actors():
         # Récupérer tous les acteurs
         cursor = conn.execute('''
             SELECT id, prenom, nom, role, region, localite, superficie,
-                   systeme_irrigation, type_sol, type_culture, speculation, created_at
+                   systeme_irrigation, type_sol, type_culture, speculation, 
+                   coordinates_lat, coordinates_lng, created_at
             FROM actors 
             ORDER BY created_at DESC
         ''')
         
         actors = []
         for row in cursor.fetchall():
-            actors.append({
+            actor = {
                 "id": row[0],
                 "prenom": row[1],
                 "nom": row[2], 
@@ -114,8 +202,17 @@ def list_actors():
                 "type_sol": row[8],
                 "type_culture": row[9],
                 "speculation": row[10],
-                "created_at": row[11]
-            })
+                "created_at": row[13]
+            }
+            
+            # Ajouter les coordonnées si elles existent
+            if row[11] and row[12]:
+                actor["coordinates"] = {
+                    "lat": row[11],
+                    "lng": row[12]
+                }
+            
+            actors.append(actor)
         
         conn.close()
         
@@ -139,7 +236,8 @@ def get_actor(actor_id):
         
         cursor = conn.execute('''
             SELECT id, prenom, nom, role, region, localite, superficie,
-                   systeme_irrigation, type_sol, type_culture, speculation, created_at
+                   systeme_irrigation, type_sol, type_culture, speculation, 
+                   coordinates_lat, coordinates_lng, created_at
             FROM actors 
             WHERE id = ?
         ''', (actor_id,))
@@ -162,8 +260,15 @@ def get_actor(actor_id):
             "type_sol": row[8],
             "type_culture": row[9],
             "speculation": row[10],
-            "created_at": row[11]
+            "created_at": row[13]
         }
+        
+        # Ajouter les coordonnées si elles existent
+        if row[11] and row[12]:
+            actor["coordinates"] = {
+                "lat": row[11],
+                "lng": row[12]
+            }
         
         logging.info(f"👤 Acteur récupéré: {actor['prenom']} {actor['nom']}")
         

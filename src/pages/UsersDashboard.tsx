@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Eye, MapPin, User, Droplets } from 'lucide-react';
+import { ArrowLeft, Eye, MapPin, User, Droplets, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
+import { UserManagement } from '@/components/UserManagement';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface RegisteredActor {
   id: number;
@@ -18,6 +20,7 @@ interface RegisteredActor {
   systeme_irrigation: string;
   type_sol: string;
   type_culture: string;
+  speculation: string;
   created_at: string;
 }
 
@@ -110,7 +113,7 @@ const UsersDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                Dashboards des Acteurs Agricoles
+                Gestion des Acteurs Agricoles
               </h1>
               <p className="text-gray-600">
                 {actors.length} acteur(s) enregistré(s) dans le système
@@ -126,7 +129,6 @@ const UsersDashboard = () => {
           </div>
         </div>
 
-        {/* Liste des acteurs */}
         {actors.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -146,58 +148,81 @@ const UsersDashboard = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {actors.map((actor) => (
-              <Card key={actor.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg text-blue-800">
-                        {actor.prenom} {actor.nom}
-                      </CardTitle>
-                      <Badge className={`mt-2 ${getRoleColor(actor.role)}`}>
-                        {actor.role}
-                      </Badge>
-                    </div>
-                  </div>
+          <Tabs defaultValue="view" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="view">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="manage">Gestion</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="view" className="mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {actors.map((actor) => (
+                  <Card key={actor.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg text-blue-800">
+                            {actor.prenom} {actor.nom}
+                          </CardTitle>
+                          <Badge className={`mt-2 ${getRoleColor(actor.role)}`}>
+                            {actor.role}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        <span>{actor.localite}, {actor.region}</span>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Superficie:</span>
+                          <span className="font-medium">{actor.superficie.toLocaleString()} m²</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Spéculation:</span>
+                          <span className="font-medium">{actor.speculation}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Sol:</span>
+                          <span className="font-medium">{actor.type_sol}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center text-xs text-gray-500 pt-2">
+                        <Droplets className="h-3 w-3 mr-1" />
+                        <span>{actor.systeme_irrigation}</span>
+                      </div>
+
+                      <Button
+                        onClick={() => handleViewDashboard(actor.id)}
+                        className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Voir Dashboard
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="manage" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Settings className="h-5 w-5" />
+                    <span>Gestion des Utilisateurs</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <span>{actor.localite}, {actor.region}</span>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Superficie:</span>
-                      <span className="font-medium">{actor.superficie.toLocaleString()} m²</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sol:</span>
-                      <span className="font-medium">{actor.type_sol}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Culture:</span>
-                      <span className="font-medium text-xs">{getCultureLabel(actor.type_culture)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-xs text-gray-500 pt-2">
-                    <Droplets className="h-3 w-3 mr-1" />
-                    <span>{actor.systeme_irrigation}</span>
-                  </div>
-
-                  <Button
-                    onClick={() => handleViewDashboard(actor.id)}
-                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Voir Dashboard
-                  </Button>
+                <CardContent>
+                  <UserManagement users={actors} onUserUpdated={loadActors} />
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
