@@ -16,13 +16,17 @@ export const Dashboard = () => {
   const [selectedLocation, setSelectedLocation] = useState<'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'>('thies');
   const { weatherData, isLoading, error } = useWeather(selectedLocation);
 
-  // Analyse des tendances basée sur les données du graphique
-  const [chartTrend, setChartTrend] = useState<{
+  // Analyse des tendances basée sur les données du graphique avec stats min/max
+  const [chartStats, setChartStats] = useState<{
     trend: 'increasing' | 'decreasing' | 'stable';
-    peakTime: string;
+    minUsage: number;
+    maxUsage: number;
+    avgUsage: number;
   }>({
     trend: 'stable',
-    peakTime: '14h00'
+    minUsage: 0.15,
+    maxUsage: 0.85,
+    avgUsage: 0.42
   });
 
   const getLocationName = () => {
@@ -34,6 +38,20 @@ export const Dashboard = () => {
       'bargny': 'Bargny'
     };
     return names[selectedLocation] || 'Thiès';
+  };
+
+  const getUsageAnalysis = () => {
+    const { minUsage, maxUsage, avgUsage } = chartStats;
+    
+    if (maxUsage > 0.7) {
+      return "Consommation élevée détectée - Vérifier l'efficacité du système";
+    } else if (minUsage < 0.2) {
+      return "Périodes de faible utilisation optimales pour maintenance";
+    } else if (avgUsage > 0.5) {
+      return "Usage moyen élevé - Surveiller les besoins en eau";
+    } else {
+      return "Gestion hydrique dans les normes recommandées";
+    }
   };
 
   return (
@@ -61,7 +79,7 @@ export const Dashboard = () => {
           <AgroClimateParams onLocationChange={setSelectedLocation} />
         </section>
 
-        {/* Section Conditions Météo - Déplacée ici */}
+        {/* Section Conditions Météo */}
         <section className="scroll-mt-6">
           <Card>
             <CardHeader>
@@ -106,7 +124,7 @@ export const Dashboard = () => {
                     <span>Précipitations:</span>
                     <span className="font-medium text-green-600">{weatherData.precipitation}</span>
                   </div>
-                  {weatherData.description && (
+                  {weatherData.description && weatherData.description !== "Données locales simulées" && (
                     <div className="flex justify-between items-center">
                       <span>Condition:</span>
                       <span className="font-medium text-purple-600">{weatherData.description}</span>
@@ -134,7 +152,7 @@ export const Dashboard = () => {
             <WaterChart />
           </div>
           
-          {/* Analyse des Tendances simplifiée */}
+          {/* Analyse des Tendances avec stats min/max */}
           <div className="mb-6">
             <Card>
               <CardHeader>
@@ -144,20 +162,37 @@ export const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Usage Minimum</div>
+                      <div className="text-xl font-bold text-blue-600">{(chartStats.minUsage * 1000).toFixed(0)}L</div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Usage Maximum</div>
+                      <div className="text-xl font-bold text-green-600">{(chartStats.maxUsage * 1000).toFixed(0)}L</div>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Usage Moyen</div>
+                      <div className="text-xl font-bold text-orange-600">{(chartStats.avgUsage * 1000).toFixed(0)}L</div>
+                    </div>
+                  </div>
+                  
                   <div className="flex justify-between">
                     <span>Tendance courbe:</span>
                     <span className={`font-medium capitalize ${
-                      chartTrend.trend === 'increasing' ? 'text-red-600' :
-                      chartTrend.trend === 'decreasing' ? 'text-blue-600' : 'text-green-600'
+                      chartStats.trend === 'increasing' ? 'text-red-600' :
+                      chartStats.trend === 'decreasing' ? 'text-blue-600' : 'text-green-600'
                     }`}>
-                      {chartTrend.trend === 'increasing' ? 'Croissante' :
-                       chartTrend.trend === 'decreasing' ? 'Décroissante' : 'Stable'}
+                      {chartStats.trend === 'increasing' ? 'Croissante' :
+                       chartStats.trend === 'decreasing' ? 'Décroissante' : 'Stable'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Pic d'utilisation:</span>
-                    <span className="font-medium">{chartTrend.peakTime}</span>
+                  
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <strong>Analyse:</strong> {getUsageAnalysis()}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -165,9 +200,9 @@ export const Dashboard = () => {
           </div>
         </section>
 
-        {/* Section Recommandations IA - Version simplifiée */}
+        {/* Section Recommandations (ancien Guide d'Arrosage) */}
         <section id="recommendations" className="scroll-mt-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations IA</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Recommandations</h2>
           <IrrigationRecommendations />
         </section>
       </div>

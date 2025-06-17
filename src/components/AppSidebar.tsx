@@ -34,7 +34,7 @@ const menuItems = [
     icon: BarChart3,
   },
   {
-    title: "Recommandations IA",
+    title: "Recommandations",
     sectionId: "recommendations",
     icon: Lightbulb,
   },

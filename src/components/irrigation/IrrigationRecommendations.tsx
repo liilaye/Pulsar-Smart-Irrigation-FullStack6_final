@@ -104,7 +104,7 @@ export const IrrigationRecommendations = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Lightbulb className="h-5 w-5 text-yellow-500" />
-            <span>Recommandations IA</span>
+            <span>Recommandations</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -124,7 +124,7 @@ export const IrrigationRecommendations = () => {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Lightbulb className="h-5 w-5 text-yellow-500" />
-            <span className="text-lg">Guide d'Arrosage Manuel</span>
+            <span className="text-lg">Recommandations d'Arrosage</span>
           </div>
           <Badge variant="secondary">Taïba Ndiaye</Badge>
         </CardTitle>
@@ -178,7 +178,7 @@ export const IrrigationRecommendations = () => {
 
         {/* Note informative */}
         <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          🎯 Recommandations spécifiques pour l'arrosage manuel en région de Taïba Ndiaye
+          🎯 Recommandations optimisées pour l'arrosage manuel en région de Taïba Ndiaye
         </div>
       </CardContent>
     </Card>
