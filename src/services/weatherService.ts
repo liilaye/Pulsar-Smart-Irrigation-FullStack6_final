@@ -11,12 +11,14 @@ interface WeatherData {
   cloudCover?: string;
   feelsLike?: string;
   weatherIcon?: string;
+  isRealData?: boolean; // Nouveau flag pour identifier les vraies données
 }
 
 class WeatherService {
   private apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
   private baseUrl = 'https://api.openweathermap.org/data/2.5/weather';
   private lastRealDataTime: Date | null = null;
+  private lastSuccessfulLocation: string | null = null;
 
   async getRealTimeWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'): Promise<WeatherData | null> {
     if (!this.apiKey) {
@@ -56,7 +58,9 @@ class WeatherService {
       }
 
       this.lastRealDataTime = new Date();
+      this.lastSuccessfulLocation = location;
       const weatherData = this.formatOpenWeatherData(data);
+      weatherData.isRealData = true; // Marquer comme vraies données
       
       console.log(`✅ Données météo temps réel récupérées pour ${location}:`, weatherData);
       return weatherData;
@@ -66,7 +70,9 @@ class WeatherService {
       
       // Utiliser les données de secours uniquement en cas d'échec
       console.log(`🔄 Basculement vers données de secours pour ${location}`);
-      return this.getFallbackData(location);
+      const fallbackData = this.getFallbackData(location);
+      fallbackData.isRealData = false; // Marquer comme données de secours
+      return fallbackData;
     }
   }
 
@@ -87,7 +93,8 @@ class WeatherService {
       feelsLike: `${Math.round(data.main.feels_like)}°C`,
       visibility: data.visibility ? `${(data.visibility / 1000).toFixed(1)} km` : undefined,
       cloudCover: data.clouds ? `${data.clouds.all}%` : undefined,
-      weatherIcon: this.getWeatherIcon(data.weather[0].icon)
+      weatherIcon: this.getWeatherIcon(data.weather[0].icon),
+      isRealData: true
     };
   }
 
@@ -130,12 +137,13 @@ class WeatherService {
         windSpeed: `${12 + Math.floor(Math.random() * 6)} km/h`,
         precipitation: `${(Math.random() * 1.2).toFixed(1)} mm`,
         location: locationNames[location as keyof typeof locationNames] || 'Thiès',
-        description: 'Données locales - Saison sèche',
+        description: 'Données de secours - Saison sèche',
         pressure: `${1014 + Math.floor(Math.random() * 8)} hPa`,
         feelsLike: `${30 + tempVariation}°C`,
         visibility: `${10 + Math.floor(Math.random() * 5)} km`,
         cloudCover: `${Math.floor(Math.random() * 30)}%`,
-        weatherIcon: 'sun'
+        weatherIcon: 'sun',
+        isRealData: false
       };
     } else {
       return {
@@ -144,12 +152,13 @@ class WeatherService {
         windSpeed: `${10 + Math.floor(Math.random() * 8)} km/h`,
         precipitation: `${(8 + Math.random() * 15).toFixed(1)} mm`,
         location: locationNames[location as keyof typeof locationNames] || 'Thiès',
-        description: 'Données locales - Saison des pluies',
+        description: 'Données de secours - Saison des pluies',
         pressure: `${1010 + Math.floor(Math.random() * 6)} hPa`,
         feelsLike: `${27 + tempVariation}°C`,
         visibility: `${6 + Math.floor(Math.random() * 4)} km`,
         cloudCover: `${60 + Math.floor(Math.random() * 30)}%`,
-        weatherIcon: 'rain'
+        weatherIcon: 'rain',
+        isRealData: false
       };
     }
   }
@@ -163,6 +172,10 @@ class WeatherService {
     if (!this.lastRealDataTime) return false;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     return this.lastRealDataTime > fiveMinutesAgo;
+  }
+
+  getLastSuccessfulLocation(): string | null {
+    return this.lastSuccessfulLocation;
   }
 }
 

@@ -19,8 +19,8 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
         
         if (data) {
           setWeatherData(data);
-          // Vérifier si ce sont des vraies données ou de secours
-          const usingRealData = weatherService.isUsingRealData() && !data.description?.includes('Données locales');
+          // Utiliser le flag isRealData directement des données
+          const usingRealData = data.isRealData === true;
           setIsRealData(usingRealData);
           
           if (usingRealData) {
@@ -28,7 +28,7 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
             setError(null);
           } else {
             console.log(`🔄 Utilisation données de secours pour ${location}`);
-            setError('OpenWeather indisponible - Données de secours actives');
+            setError(null); // Ne plus afficher d'erreur pour les données de secours
           }
         } else {
           throw new Error('Aucune donnée météo disponible');
