@@ -71,7 +71,7 @@ export const WaterChart = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Quantité d'Eau Utilisée - Comparaison ML vs Manuel</span>
+          <span>Graphique</span>
           {isRealTimeActive && (
             <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></div>
