@@ -71,10 +71,9 @@ class WeatherService {
       this.lastRealDataTime = new Date();
       this.lastSuccessfulLocation = location;
       const weatherData = this.formatOpenWeatherData(data);
-      weatherData.isRealData = true;
       
-      console.log(`✅ DEBUG: Données météo temps réel formatées:`, weatherData);
-      console.log(`✅ DEBUG: Flag isRealData: ${weatherData.isRealData}`);
+      console.log(`✅ DEBUG: Données météo temps réel formatées avec succès`);
+      console.log(`✅ DEBUG: Description finale: ${weatherData.description}`);
       return weatherData;
 
     } catch (error) {
@@ -84,35 +83,38 @@ class WeatherService {
       console.log(`🔄 DEBUG: Basculement vers données de secours pour ${location}`);
       const fallbackData = this.getFallbackData(location);
       fallbackData.isRealData = false;
-      console.log(`🔄 DEBUG: Données de secours créées:`, fallbackData);
+      console.log(`🔄 DEBUG: Données de secours créées avec description: ${fallbackData.description}`);
       return fallbackData;
     }
   }
 
   private formatOpenWeatherData(data: any): WeatherData {
-    console.log(`🔍 DEBUG: Formatage données OpenWeather...`);
+    console.log(`🔍 DEBUG: Formatage données OpenWeather - description originale: ${data.weather[0].description}`);
     
     // Calcul précipitations (pluie + neige sur 1h)
     let precipitation = 0;
     if (data.rain?.['1h']) precipitation += data.rain['1h'];
     if (data.snow?.['1h']) precipitation += data.snow['1h'];
 
+    // Utiliser la vraie description météo d'OpenWeather
+    const realDescription = data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1);
+    
     const formattedData = {
       temperature: `${Math.round(data.main.temp)}°C`,
       humidity: `${data.main.humidity}%`,
       windSpeed: `${Math.round(data.wind.speed * 3.6)} km/h`,
       precipitation: `${precipitation.toFixed(1)} mm`,
       location: data.name,
-      description: data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1),
+      description: realDescription, // Description réelle d'OpenWeather
       pressure: `${data.main.pressure} hPa`,
       feelsLike: `${Math.round(data.main.feels_like)}°C`,
       visibility: data.visibility ? `${(data.visibility / 1000).toFixed(1)} km` : undefined,
       cloudCover: data.clouds ? `${data.clouds.all}%` : undefined,
       weatherIcon: this.getWeatherIcon(data.weather[0].icon),
-      isRealData: true
+      isRealData: true // VRAIES données OpenWeather
     };
     
-    console.log(`🔍 DEBUG: Données formatées:`, formattedData);
+    console.log(`🔍 DEBUG: Données formatées - description finale: ${formattedData.description}, isRealData: ${formattedData.isRealData}`);
     return formattedData;
   }
 
@@ -178,7 +180,7 @@ class WeatherService {
       isRealData: false
     };
     
-    console.log(`🔍 DEBUG: Données de secours générées:`, fallbackData);
+    console.log(`🔍 DEBUG: Données de secours générées avec description: ${fallbackData.description}`);
     return fallbackData;
   }
 

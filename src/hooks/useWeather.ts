@@ -18,7 +18,7 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
         const data = await weatherService.getRealTimeWeatherData(location);
         
         if (data) {
-          console.log(`🔍 DEBUG: Hook - Données reçues:`, data);
+          console.log(`🔍 DEBUG: Hook - Données reçues avec description: ${data.description}`);
           console.log(`🔍 DEBUG: Hook - isRealData dans les données: ${data.isRealData}`);
           
           setWeatherData(data);
@@ -34,7 +34,7 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
             setError(null);
           } else {
             console.log(`🔄 DEBUG: Hook - Utilisation données de secours pour ${location}`);
-            setError(null); // Ne pas afficher d'erreur pour les données de secours
+            setError('Données de secours utilisées'); // Signaler qu'on utilise les données de secours
           }
         } else {
           console.error('❌ DEBUG: Hook - Aucune donnée météo disponible');
@@ -56,7 +56,7 @@ export const useWeather = (location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' 
     return () => clearInterval(interval);
   }, [location]);
 
-  console.log(`🔍 DEBUG: Hook - État final: isRealData=${isRealData}, error=${error}, weatherData exists=${!!weatherData}`);
+  console.log(`🔍 DEBUG: Hook - État final: isRealData=${isRealData}, error=${error}, description=${weatherData?.description}`);
 
   return { weatherData, isLoading, error, isRealData };
 };
