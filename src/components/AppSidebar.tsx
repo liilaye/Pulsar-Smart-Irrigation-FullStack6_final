@@ -12,10 +12,8 @@ import {
 } from "@/components/ui/sidebar";
 import { 
   Home, 
-  Droplets, 
   Thermometer, 
   BarChart3, 
-  Settings,
   Lightbulb
 } from 'lucide-react';
 
@@ -31,19 +29,14 @@ const menuItems = [
     icon: Thermometer,
   },
   {
-    title: "Analyses",
+    title: "Analyses et Graphiques",
     sectionId: "analytics",
     icon: BarChart3,
   },
   {
-    title: "Recommandations",
+    title: "Recommandations IA",
     sectionId: "recommendations",
     icon: Lightbulb,
-  },
-  {
-    title: "Système d'Irrigation",
-    sectionId: "irrigation-system",
-    icon: Settings,
   },
 ];
 
