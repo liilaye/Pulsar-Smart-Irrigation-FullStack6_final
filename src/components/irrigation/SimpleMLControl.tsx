@@ -276,7 +276,7 @@ export const SimpleMLControl = () => {
   }
 
   return (
-    <Card className="w-full bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+    <Card className="w-full bg-gradient-to-br from-blue-50 to-sky-50 border-blue-200">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -299,19 +299,19 @@ export const SimpleMLControl = () => {
       <CardContent className="space-y-6">
         {/* Recommandation ML personnalisée actuelle */}
         {recommendation && (
-          <div className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
-            <h4 className="font-semibold text-purple-800 mb-2">Recommandation IA Personnalisée</h4>
+          <div className="p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+            <h4 className="font-semibold text-blue-800 mb-2">Recommandation IA Personnalisée</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-purple-700">Durée optimisée:</span>
+                <span className="text-blue-700">Durée optimisée:</span>
                 <span className="font-medium">{Math.floor(recommendation.duree_minutes)} min</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-purple-700">Volume adapté:</span>
+                <span className="text-blue-700">Volume adapté:</span>
                 <span className="font-medium">{recommendation.volume_eau_m3?.toFixed(2)} m³</span>
               </div>
             </div>
-            <p className="text-xs text-purple-600 mt-2">
+            <p className="text-xs text-blue-600 mt-2">
               {recommendation.matt}
             </p>
           </div>
@@ -319,8 +319,8 @@ export const SimpleMLControl = () => {
 
         {/* Conditions spécifiques à l'utilisateur */}
         {weatherData && (
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="text-sm text-blue-700">
+          <div className="p-3 bg-sky-50 rounded-lg border border-sky-200">
+            <div className="text-sm text-sky-700">
               <strong>Conditions {activeUser.localite}:</strong> {weatherData.temperature}, 
               Humidité: {weatherData.humidity}, Précipitations: {weatherData.precipitation}
             </div>
@@ -340,7 +340,7 @@ export const SimpleMLControl = () => {
               disabled={!isConnected || isLoading || isActive}
               variant="default"
               size="lg"
-              className="flex-1 bg-purple-600 hover:bg-purple-700"
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
             >
               {isLoading && !isActive ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -369,7 +369,7 @@ export const SimpleMLControl = () => {
           {/* Statut */}
           <div className="text-center">
             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              isActive ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'
+              isActive ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
             }`}>
               {isActive ? 'IRRIGATION ML PERSONNALISÉE ACTIVE' : 'IRRIGATION ML ARRÊTÉE'}
             </div>
@@ -386,13 +386,13 @@ export const SimpleMLControl = () => {
           <div className="grid grid-cols-2 gap-2">
             <div className="flex justify-between">
               <span>Profil:</span>
-              <span className="text-purple-600">
+              <span className="text-blue-600">
                 {activeUser.prenom} {activeUser.nom}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Localité:</span>
-              <span className="text-blue-600">{activeUser.localite}</span>
+              <span className="text-sky-600">{activeUser.localite}</span>
             </div>
             <div className="flex justify-between">
               <span>Sol:</span>
