@@ -1,8 +1,9 @@
-
 from flask import Blueprint, request, jsonify
-from config.database import get_db_connection
+from config.database import get_db_connection, ensure_db_permissions
 import json
 import logging
+import sqlite3
+import os
 
 actors_bp = Blueprint('actors', __name__)
 
@@ -20,9 +21,12 @@ def register_actor():
             if not data.get(field):
                 return jsonify({"error": f"Champ requis manquant: {field}"}), 400
         
+        # Vérifier les permissions de la base de données
+        ensure_db_permissions()
+        
         conn = get_db_connection()
         
-        # Vérifier si la table existe, sinon la créer
+        # Créer la table actors si elle n'existe pas
         conn.execute('''
             CREATE TABLE IF NOT EXISTS actors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +72,7 @@ def register_actor():
         conn.commit()
         conn.close()
         
-        logging.info(f"✅ Nouvel acteur enregistré: {data['prenom']} {data['nom']} (ID: {actor_id})")
+        print(f"✅ Nouvel acteur enregistré: {data['prenom']} {data['nom']} (ID: {actor_id})")
         
         return jsonify({
             "success": True,
@@ -77,9 +81,36 @@ def register_actor():
             "actor": data
         }), 201
         
+    except sqlite3.OperationalError as e:
+        error_msg = str(e)
+        print(f"❌ Erreur SQLite: {error_msg}")
+        
+        if "readonly database" in error_msg:
+            return jsonify({
+                "error": "Base de données en lecture seule",
+                "solution": "Supprimez le fichier irrigation_logs.db et redémarrez le serveur Flask",
+                "details": "chmod 666 irrigation_logs.db ou suppression recommandée"
+            }), 500
+        elif "locked" in error_msg:
+            return jsonify({
+                "error": "Base de données verrouillée",
+                "solution": "Redémarrez le serveur Flask",
+                "details": "Autre processus utilisant la DB"
+            }), 500
+        else:
+            return jsonify({
+                "error": f"Erreur base de données: {error_msg}",
+                "solution": "Vérifiez les permissions du fichier et répertoire"
+            }), 500
+            
     except Exception as e:
-        logging.error(f"❌ Erreur enregistrement acteur: {e}")
-        return jsonify({"error": "Erreur interne du serveur"}), 500
+        error_msg = str(e)
+        print(f"❌ Erreur enregistrement acteur: {error_msg}")
+        return jsonify({
+            "error": "Erreur interne du serveur",
+            "details": error_msg,
+            "solution": "Vérifiez les logs du serveur Flask"
+        }), 500
 
 @actors_bp.route('/actors/<int:actor_id>', methods=['PUT'])
 def update_actor(actor_id):
