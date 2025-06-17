@@ -14,7 +14,7 @@ def register_actor():
         
         # Validation des données requises
         required_fields = ['prenom', 'nom', 'role', 'region', 'localite', 
-                          'superficie', 'systeme_irrigation', 'type_sol', 'type_culture']
+                          'superficie', 'systeme_irrigation', 'type_sol', 'type_culture', 'speculation']
         
         for field in required_fields:
             if not data.get(field):
@@ -35,6 +35,7 @@ def register_actor():
                 systeme_irrigation TEXT NOT NULL,
                 type_sol TEXT NOT NULL,
                 type_culture TEXT NOT NULL,
+                speculation TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -43,8 +44,8 @@ def register_actor():
         # Insérer le nouvel acteur
         cursor = conn.execute('''
             INSERT INTO actors (prenom, nom, role, region, localite, superficie, 
-                              systeme_irrigation, type_sol, type_culture)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              systeme_irrigation, type_sol, type_culture, speculation)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['prenom'],
             data['nom'], 
@@ -54,7 +55,8 @@ def register_actor():
             int(data['superficie']),
             data['systeme_irrigation'],
             data['type_sol'],
-            data['type_culture']
+            data['type_culture'],
+            data['speculation']
         ))
         
         actor_id = cursor.lastrowid
@@ -93,7 +95,7 @@ def list_actors():
         # Récupérer tous les acteurs
         cursor = conn.execute('''
             SELECT id, prenom, nom, role, region, localite, superficie,
-                   systeme_irrigation, type_sol, type_culture, created_at
+                   systeme_irrigation, type_sol, type_culture, speculation, created_at
             FROM actors 
             ORDER BY created_at DESC
         ''')
@@ -111,7 +113,8 @@ def list_actors():
                 "systeme_irrigation": row[7],
                 "type_sol": row[8],
                 "type_culture": row[9],
-                "created_at": row[10]
+                "speculation": row[10],
+                "created_at": row[11]
             })
         
         conn.close()
@@ -136,7 +139,7 @@ def get_actor(actor_id):
         
         cursor = conn.execute('''
             SELECT id, prenom, nom, role, region, localite, superficie,
-                   systeme_irrigation, type_sol, type_culture, created_at
+                   systeme_irrigation, type_sol, type_culture, speculation, created_at
             FROM actors 
             WHERE id = ?
         ''', (actor_id,))
@@ -158,7 +161,8 @@ def get_actor(actor_id):
             "systeme_irrigation": row[7],
             "type_sol": row[8],
             "type_culture": row[9],
-            "created_at": row[10]
+            "speculation": row[10],
+            "created_at": row[11]
         }
         
         logging.info(f"👤 Acteur récupéré: {actor['prenom']} {actor['nom']}")

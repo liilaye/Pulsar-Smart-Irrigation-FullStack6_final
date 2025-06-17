@@ -61,7 +61,8 @@ const RegisterActor = () => {
     superficie: '',
     systeme_irrigation: '',
     type_sol: '',
-    type_culture: ''
+    type_culture: '',
+    speculation: ''
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -268,6 +269,21 @@ const RegisterActor = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Spéculation */}
+              <div>
+                <Label htmlFor="speculation">Spéculation *</Label>
+                <Input
+                  id="speculation"
+                  value={formData.speculation}
+                  onChange={(e) => handleInputChange('speculation', e.target.value)}
+                  placeholder="Ex: mil, riz, maïs, niébé, arachide..."
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Précisez la culture spécifique (mil, riz, maïs, niébé, arachide, etc.)
+                </p>
               </div>
 
               {/* Bouton de soumission */}
