@@ -1,125 +1,122 @@
-
 interface WeatherData {
   temperature: string;
   humidity: string;
   windSpeed: string;
   precipitation: string;
+  weatherIcon: string;
   location: string;
   description?: string;
   pressure?: string;
+  feels_like?: string;
   visibility?: string;
+  uvIndex?: string;
   cloudCover?: string;
-  feelsLike?: string;
-  weatherIcon?: string;
-  isRealData?: boolean;
 }
 
 class WeatherService {
-  private apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
-  private baseUrl = 'https://api.openweathermap.org/data/2.5/weather';
-  private lastRealDataTime: Date | null = null;
-  private lastSuccessfulLocation: string | null = null;
+  private apiKey = 'c191a33a86795596637b7eb142c51fdd';
+  private baseUrl = 'https://api.openweathermap.org/data/2.5';
 
-  async getRealTimeWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'): Promise<WeatherData | null> {
-    console.log(`🔍 DEBUG: Début récupération météo pour ${location}`);
-    console.log(`🔍 DEBUG: API Key disponible: ${!!this.apiKey}`);
-    
-    if (!this.apiKey) {
-      console.warn('⚠️ DEBUG: Clé API OpenWeather manquante - utilisation données de secours uniquement');
-      const fallbackData = this.getFallbackData(location);
-      fallbackData.isRealData = false;
-      return fallbackData;
-    }
-
-    const cityMapping = {
-      'thies': 'Thiès,SN',
-      'taiba-ndiaye': 'Taiba Ndiaye,SN', 
-      'hann-maristes': 'Hann,SN',
-      'dakar': 'Dakar,SN',
-      'bargny': 'Bargny,SN'
-    };
-
-    const cityQuery = cityMapping[location] || 'Thiès,SN';
-    console.log(`🔍 DEBUG: Requête pour ville: ${cityQuery}`);
-    
+  async getWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny' = 'thies'): Promise<WeatherData | null> {
     try {
-      const url = `${this.baseUrl}?q=${encodeURIComponent(cityQuery)}&appid=${this.apiKey}&units=metric&lang=fr`;
-      console.log(`🌍 DEBUG: URL complète: ${url.replace(this.apiKey, 'HIDDEN_API_KEY')}`);
+      console.log(`🌤️ Récupération météo OpenWeather pour: ${location}`);
       
-      const response = await fetch(url, { 
+      // Mapping des villes pour le Sénégal
+      const cityMapping = {
+        'thies': 'Thiès,SN',
+        'taiba-ndiaye': 'Taiba Ndiaye,SN',
+        'hann-maristes': 'Hann Maristes,SN',
+        'dakar': 'Dakar,SN',
+        'bargny': 'Bargny,SN'
+      };
+      
+      const city = cityMapping[location];
+      const url = `${this.baseUrl}/weather?q=${city}&appid=${this.apiKey}&units=metric&lang=fr`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Accept': 'application/json'
+          'Content-Type': 'application/json',
         }
       });
-
-      console.log(`🔍 DEBUG: Statut réponse: ${response.status}`);
       
       if (!response.ok) {
-        console.error(`❌ DEBUG: Erreur API: ${response.status} ${response.statusText}`);
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const data = await response.json();
-      console.log(`🔍 DEBUG: Données API reçues:`, data);
+      console.log('Données météo OpenWeather reçues:', data);
       
-      // Valider que les données sont complètes
-      if (!data.main || !data.weather || !data.wind) {
-        console.error('❌ DEBUG: Données API incomplètes:', { main: !!data.main, weather: !!data.weather, wind: !!data.wind });
-        throw new Error('Données API incomplètes');
-      }
-
-      this.lastRealDataTime = new Date();
-      this.lastSuccessfulLocation = location;
-      const weatherData = this.formatOpenWeatherData(data);
+      return this.formatWeatherData(data);
       
-      console.log(`✅ DEBUG: Données météo temps réel formatées avec succès`);
-      console.log(`✅ DEBUG: Description finale: ${weatherData.description}`);
-      return weatherData;
-
     } catch (error) {
-      console.error(`❌ DEBUG: Échec récupération données temps réel pour ${location}:`, error);
-      
-      // Utiliser les données de secours uniquement en cas d'échec
-      console.log(`🔄 DEBUG: Basculement vers données de secours pour ${location}`);
-      const fallbackData = this.getFallbackData(location);
-      fallbackData.isRealData = false;
-      console.log(`🔄 DEBUG: Données de secours créées avec description: ${fallbackData.description}`);
-      return fallbackData;
+      console.error('❌ Erreur météo OpenWeather, utilisation données de secours:', error);
+      return this.getFallbackData(location);
     }
   }
 
-  private formatOpenWeatherData(data: any): WeatherData {
-    console.log(`🔍 DEBUG: Formatage données OpenWeather - description originale: ${data.weather[0].description}`);
-    
-    // Calcul précipitations (pluie + neige sur 1h)
-    let precipitation = 0;
-    if (data.rain?.['1h']) precipitation += data.rain['1h'];
-    if (data.snow?.['1h']) precipitation += data.snow['1h'];
+  // Nouvelle méthode pour les données en temps réel
+  async getRealTimeWeatherData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny' = 'thies'): Promise<WeatherData | null> {
+    try {
+      console.log(`⚡ Récupération météo temps réel OpenWeather pour: ${location}`);
+      
+      // Pour les données temps réel, on peut aussi récupérer les données UV
+      const cityMapping = {
+        'thies': 'Thiès,SN',
+        'taiba-ndiaye': 'Taiba Ndiaye,SN',
+        'hann-maristes': 'Hann Maristes,SN',
+        'dakar': 'Dakar,SN',
+        'bargny': 'Bargny,SN'
+      };
+      
+      const city = cityMapping[location];
+      
+      // Récupérer d'abord les données météo principales
+      const weatherUrl = `${this.baseUrl}/weather?q=${city}&appid=${this.apiKey}&units=metric&lang=fr`;
+      const weatherResponse = await fetch(weatherUrl);
+      
+      if (!weatherResponse.ok) {
+        return this.getWeatherData(location);
+      }
+      
+      const weatherData = await weatherResponse.json();
+      console.log('Données météo temps réel OpenWeather:', weatherData);
+      
+      return this.formatWeatherData(weatherData, true);
+      
+    } catch (error) {
+      console.error('❌ Erreur météo temps réel OpenWeather:', error);
+      return this.getWeatherData(location);
+    }
+  }
 
-    // Utiliser la vraie description météo d'OpenWeather
-    const realDescription = data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1);
-    
-    const formattedData = {
+  private formatWeatherData(data: any, isRealTime = false): WeatherData {
+    // Calcul des précipitations (pluie + neige)
+    let precipitation = 0;
+    if (data.rain) {
+      precipitation += data.rain['1h'] || 0;
+    }
+    if (data.snow) {
+      precipitation += data.snow['1h'] || 0;
+    }
+
+    return {
       temperature: `${Math.round(data.main.temp)}°C`,
       humidity: `${data.main.humidity}%`,
       windSpeed: `${Math.round(data.wind.speed * 3.6)} km/h`,
       precipitation: `${precipitation.toFixed(1)} mm`,
-      location: data.name,
-      description: realDescription, // Description réelle d'OpenWeather
-      pressure: `${data.main.pressure} hPa`,
-      feelsLike: `${Math.round(data.main.feels_like)}°C`,
-      visibility: data.visibility ? `${(data.visibility / 1000).toFixed(1)} km` : undefined,
-      cloudCover: data.clouds ? `${data.clouds.all}%` : undefined,
       weatherIcon: this.getWeatherIcon(data.weather[0].icon),
-      isRealData: true // VRAIES données OpenWeather
+      location: data.name,
+      description: data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1),
+      pressure: `${data.main.pressure} hPa`,
+      feels_like: `${Math.round(data.main.feels_like)}°C`,
+      visibility: data.visibility ? `${(data.visibility / 1000).toFixed(1)} km` : 'N/A',
+      cloudCover: `${data.clouds.all}%`
     };
-    
-    console.log(`🔍 DEBUG: Données formatées - description finale: ${formattedData.description}, isRealData: ${formattedData.isRealData}`);
-    return formattedData;
   }
 
   private getWeatherIcon(iconCode: string): string {
-    const iconMapping = {
+    const iconMapping: { [key: string]: string } = {
       "01d": "sun", "01n": "moon",
       "02d": "cloud", "02n": "cloud",
       "03d": "cloud", "03n": "cloud",
@@ -133,70 +130,39 @@ class WeatherService {
     return iconMapping[iconCode] || "sun";
   }
 
-  private getFallbackData(location: string): WeatherData {
-    console.log(`🔍 DEBUG: Génération données de secours pour ${location}`);
-    
+  private getFallbackData(location: 'thies' | 'taiba-ndiaye' | 'hann-maristes' | 'dakar' | 'bargny'): WeatherData {
     const locationNames = {
-      'thies': 'Thiès',
-      'taiba-ndiaye': 'Taïba Ndiaye',
-      'hann-maristes': 'Hann Maristes', 
-      'dakar': 'Dakar',
-      'bargny': 'Bargny'
+      "thies": "Thiès",
+      "taiba-ndiaye": "Taïba Ndiaye",
+      "hann-maristes": "Hann Maristes",
+      "dakar": "Dakar",
+      "bargny": "Bargny"
     };
-
-    // Données de secours réalistes pour la région
-    const currentMonth = new Date().getMonth() + 1;
-    const isDrySeason = [11, 12, 1, 2, 3, 4, 5].includes(currentMonth);
     
-    // Variation légère pour simuler des conditions changeantes
-    const tempVariation = Math.floor(Math.random() * 4) - 2;
-    const humidityVariation = Math.floor(Math.random() * 10) - 5;
+    // Données réalistes pour la région de Thiès/Dakar
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const isDrySeason = month >= 11 || month <= 5; // Nov-Mai
     
-    const fallbackData = isDrySeason ? {
-      temperature: `${28 + tempVariation}°C`,
-      humidity: `${55 + humidityVariation}%`,
-      windSpeed: `${12 + Math.floor(Math.random() * 6)} km/h`,
-      precipitation: `${(Math.random() * 1.2).toFixed(1)} mm`,
-      location: locationNames[location as keyof typeof locationNames] || 'Thiès',
-      description: 'Données de secours - Saison sèche',
-      pressure: `${1014 + Math.floor(Math.random() * 8)} hPa`,
-      feelsLike: `${30 + tempVariation}°C`,
-      visibility: `${10 + Math.floor(Math.random() * 5)} km`,
-      cloudCover: `${Math.floor(Math.random() * 30)}%`,
-      weatherIcon: 'sun',
-      isRealData: false
-    } : {
-      temperature: `${25 + tempVariation}°C`,
-      humidity: `${78 + humidityVariation}%`,
+    // Ajustement selon la proximité de la côte
+    const isCoastal = ['hann-maristes', 'dakar', 'bargny'].includes(location);
+    const baseTemp = isDrySeason ? (isCoastal ? 26 : 28) : (isCoastal ? 23 : 25);
+    const baseHumidity = isDrySeason ? (isCoastal ? 65 : 55) : (isCoastal ? 85 : 80);
+    const basePrecipitation = isDrySeason ? 0.2 : 8.5;
+    
+    return {
+      temperature: `${baseTemp + Math.floor(Math.random() * 6 - 3)}°C`,
+      humidity: `${baseHumidity + Math.floor(Math.random() * 20 - 10)}%`,
       windSpeed: `${10 + Math.floor(Math.random() * 8)} km/h`,
-      precipitation: `${(8 + Math.random() * 15).toFixed(1)} mm`,
-      location: locationNames[location as keyof typeof locationNames] || 'Thiès',
-      description: 'Données de secours - Saison des pluies',
-      pressure: `${1010 + Math.floor(Math.random() * 6)} hPa`,
-      feelsLike: `${27 + tempVariation}°C`,
-      visibility: `${6 + Math.floor(Math.random() * 4)} km`,
-      cloudCover: `${60 + Math.floor(Math.random() * 30)}%`,
-      weatherIcon: 'rain',
-      isRealData: false
+      precipitation: `${(basePrecipitation + Math.random() * 2).toFixed(1)} mm`,
+      weatherIcon: basePrecipitation > 5 ? "rain" : "sun",
+      location: locationNames[location],
+      description: "Données locales simulées",
+      pressure: `${1012 + Math.floor(Math.random() * 10 - 5)} hPa`,
+      feels_like: `${baseTemp + Math.floor(Math.random() * 4 - 2)}°C`,
+      visibility: `${(8 + Math.random() * 7).toFixed(1)} km`,
+      cloudCover: `${Math.floor(Math.random() * 60)}%`
     };
-    
-    console.log(`🔍 DEBUG: Données de secours générées avec description: ${fallbackData.description}`);
-    return fallbackData;
-  }
-
-  // Méthode pour données de secours (legacy)
-  async getWeatherData(location: string): Promise<WeatherData> {
-    return this.getFallbackData(location);
-  }
-
-  isUsingRealData(): boolean {
-    if (!this.lastRealDataTime) return false;
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    return this.lastRealDataTime > fiveMinutesAgo;
-  }
-
-  getLastSuccessfulLocation(): string | null {
-    return this.lastSuccessfulLocation;
   }
 }
 
