@@ -1,39 +1,66 @@
+
 import sqlite3
 from datetime import datetime
 import os
 import stat
+import tempfile
+from pathlib import Path
 
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'irrigation_logs.db')
+# Utiliser le répertoire home de l'utilisateur pour éviter les problèmes de permissions
+HOME_DIR = Path.home()
+DB_DIR = HOME_DIR / '.pulsar_irrigation'
+DATABASE_PATH = DB_DIR / 'irrigation_logs.db'
+
+def ensure_db_directory():
+    """Créer le répertoire de base de données s'il n'existe pas"""
+    try:
+        DB_DIR.mkdir(exist_ok=True)
+        print(f"✅ Répertoire DB créé/vérifié: {DB_DIR}")
+        return True
+    except Exception as e:
+        print(f"❌ Erreur création répertoire: {e}")
+        return False
 
 def get_db_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
+    # S'assurer que le répertoire existe
+    if not ensure_db_directory():
+        raise Exception("Impossible de créer le répertoire de base de données")
+    
+    conn = sqlite3.connect(str(DATABASE_PATH))
     conn.row_factory = sqlite3.Row
     return conn
 
 def ensure_db_permissions():
     """Assurer que la base de données a les bonnes permissions"""
     try:
+        # Créer le répertoire s'il n'existe pas
+        if not ensure_db_directory():
+            return False
+            
         # Créer le fichier s'il n'existe pas
-        if not os.path.exists(DATABASE_PATH):
-            # Créer un fichier vide
-            open(DATABASE_PATH, 'a').close()
+        if not DATABASE_PATH.exists():
+            DATABASE_PATH.touch()
             print(f"✅ Base de données créée: {DATABASE_PATH}")
         
         # Définir les permissions de lecture/écriture
-        os.chmod(DATABASE_PATH, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP)
+        DATABASE_PATH.chmod(0o666)
         print(f"✅ Permissions définies pour: {DATABASE_PATH}")
+        return True
         
-        # Vérifier les permissions du répertoire parent
-        parent_dir = os.path.dirname(DATABASE_PATH)
-        if not os.access(parent_dir, os.W_OK):
-            print(f"⚠️ Répertoire parent sans permission d'écriture: {parent_dir}")
-            
     except Exception as e:
         print(f"❌ Erreur permissions base de données: {e}")
+        return False
 
 def init_db():
     # Assurer les permissions avant d'initialiser
-    ensure_db_permissions()
+    if not ensure_db_permissions():
+        print("⚠️ Tentative de création dans un répertoire temporaire...")
+        # Fallback vers un répertoire temporaire
+        global DATABASE_PATH
+        temp_dir = Path(tempfile.gettempdir()) / 'pulsar_irrigation'
+        temp_dir.mkdir(exist_ok=True)
+        DATABASE_PATH = temp_dir / 'irrigation_logs.db'
+        print(f"📂 Utilisation du répertoire temporaire: {DATABASE_PATH}")
     
     try:
         conn = get_db_connection()
@@ -99,18 +126,8 @@ def init_db():
         
         conn.commit()
         conn.close()
-        print("✅ Base de données SQLite initialisée avec table actors")
+        print(f"✅ Base de données SQLite initialisée: {DATABASE_PATH}")
         
-    except sqlite3.OperationalError as e:
-        if "readonly database" in str(e):
-            print(f"❌ Base de données en lecture seule: {DATABASE_PATH}")
-            print("🔧 Solutions:")
-            print("1. Supprimez le fichier irrigation_logs.db")
-            print("2. Redémarrez le serveur Flask")
-            print("3. Ou changez les permissions: chmod 666 irrigation_logs.db")
-        else:
-            print(f"❌ Erreur SQLite: {e}")
-        raise
     except Exception as e:
         print(f"❌ Erreur initialisation DB: {e}")
         raise

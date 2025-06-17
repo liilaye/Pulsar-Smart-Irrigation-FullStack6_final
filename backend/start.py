@@ -7,6 +7,7 @@ Script de démarrage pour le backend Flask PulsarInfinite
 import os
 import sys
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     print("📡 MQTT Broker: http://217.182.210.54:8080")
     print("🌤️ Service météo: OpenWeather API")
     print("🤖 Modèle ML: XGBoost arrosage")
-    print("💾 Base de données: SQLite (irrigation_logs.db)")
+    print("💾 Base de données: SQLite (dans ~/.pulsar_irrigation/)")
     print("🌐 API disponible sur: http://localhost:5002/api")
     print("=" * 60)
     
@@ -38,11 +39,10 @@ if __name__ == '__main__':
         print(f"⚠️  Modèle ML non trouvé: {model_path}")
         print("📍 Placez xgboost_arrosage_litres.pkl dans backend/models/")
     
-    # Vérifier les permissions de la base de données
-    db_path = os.path.join(os.path.dirname(__file__), 'irrigation_logs.db')
-    if os.path.exists(db_path) and not os.access(db_path, os.W_OK):
-        print(f"⚠️  Base de données sans permission d'écriture: {db_path}")
-        print("🔧 Exécutez: chmod 666 irrigation_logs.db")
+    # Afficher l'emplacement de la base de données
+    home_dir = Path.home()
+    db_path = home_dir / '.pulsar_irrigation' / 'irrigation_logs.db'
+    print(f"📂 Base de données: {db_path}")
     
     print("=" * 60)
     
