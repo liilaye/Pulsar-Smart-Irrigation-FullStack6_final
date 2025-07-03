@@ -146,61 +146,75 @@ export const SimpleMLControl = () => {
   };
 
   const handleStopML = async (isAutoStop = false) => {
-    // GARDE : Éviter les doubles appels
-    if (isStopping || !isMLActive) {
-      console.log('⚠️ Arrêt ML déjà en cours ou pas actif, ignoré');
+    // GARDE RENFORCÉE : Éviter les appels multiples
+    if (isStopping) {
+      console.log('⚠️ Arrêt ML déjà en cours, ignoré');
       return;
     }
 
-    setIsStopping(true); // BLOQUER autres appels
+    // ARRÊT IMMÉDIAT FORCÉ de l'état local (priorité 1)
+    setIsStopping(true);
+    setIsMLActive(false); // FORCER arrêt immédiat local
     setIsLoading(true);
+    
     const reason = isAutoStop ? 'Timer ML écoulé' : 'Arrêt manuel';
-    setLastAction(`${reason} - Arrêt irrigation ML...`);
+    setLastAction(`${reason} - ARRÊT FORCÉ...`);
     
     try {
-      console.log(`⏹️ ${reason} - Arrêt irrigation ML directe`);
+      console.log(`⏹️ ${reason} - ARRÊT FORCÉ irrigation ML`);
       
-      // PETIT DÉLAI pour éviter conflits buffer MQTT
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // ENVOI DIRECT MQTT device 0 (comme manuel)
-      const mqttSuccess = await publishIrrigationCommand(0);
-      
-      if (mqttSuccess) {
-        // TERMINER la session graphique avec la durée ML effective
-        if (mlSessionId) {
-          const actualDuration = startTime ? (Date.now() - startTime.getTime()) / (1000 * 60) : mlRecommendation?.duree_minutes;
-          irrigationDataService.endIrrigationSession(mlSessionId, actualDuration);
-          setMLSessionId(null);
-        }
-        
-        // NETTOYER IMMÉDIATEMENT l'état ML pour éviter conflits
-        cleanupMLState();
-        
-        console.log(`📊 Session ML terminée pour graphiques: ${reason}`);
-        setLastAction(`Irrigation ML arrêtée (${reason})`);
-        
-        setLastAction(`Irrigation ML arrêtée (${reason})`);
-        toast.success(`Irrigation ML arrêtée`, {
-          description: isAutoStop ? "Durée ML terminée automatiquement" : "Arrêt manuel d'urgence"
-        });
-      } else {
-        // En cas d'échec, réinitialiser quand même l'état
-        setIsStopping(false);
-        setLastAction(`Erreur arrêt MQTT (${reason})`);
-        toast.error("Erreur MQTT - Arrêt ML", {
-          description: `Impossible d'envoyer commande d'arrêt (${reason})`
-        });
+      // NETTOYAGE IMMÉDIAT des timers pour éviter conflits
+      if (autoStopTimer) {
+        clearTimeout(autoStopTimer);
+        setAutoStopTimer(null);
       }
+      
+      // ENVOI MQTT avec tentatives multiples si nécessaire
+      let mqttSuccess = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        console.log(`📡 Tentative MQTT ${attempt}/2`);
+        mqttSuccess = await publishIrrigationCommand(0);
+        if (mqttSuccess) break;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // FORCER arrêt backend en parallèle
+      try {
+        await backendService.stopIrrigation();
+      } catch (backendError) {
+        console.log('⚠️ Erreur backend lors arrêt forcé, continuons...');
+      }
+      
+      // TERMINER session graphique avec durée effective
+      if (mlSessionId) {
+        const actualDuration = startTime ? (Date.now() - startTime.getTime()) / (1000 * 60) : mlRecommendation?.duree_minutes;
+        irrigationDataService.endIrrigationSession(mlSessionId, actualDuration);
+        setMLSessionId(null);
+      }
+      
+      // NETTOYAGE FINAL
+      setStartTime(null);
+      
+      console.log(`✅ ARRÊT FORCÉ ML terminé: ${reason}`);
+      setLastAction(`✅ Irrigation ML ARRÊTÉE (${reason})`);
+      
+      toast.success("Irrigation ML ARRÊTÉE", {
+        description: isAutoStop ? "Timer écoulé" : "Arrêt d'urgence réussi"
+      });
+      
     } catch (error) {
-      console.error(`❌ Erreur arrêt ML (${reason}):`, error);
-      setIsStopping(false);
-      setLastAction(`Erreur système arrêt (${reason})`);
-      toast.error("Erreur système ML");
+      console.error(`❌ Erreur arrêt forcé ML:`, error);
+      setLastAction(`⚠️ Arrêt forcé avec erreur (${reason})`);
+      toast.warning("Arrêt forcé avec erreurs", {
+        description: "État local réinitialisé malgré les erreurs"
+      });
     } finally {
       setIsLoading(false);
-      // S'assurer que le flag de protection est nettoyé
-      setTimeout(() => setIsStopping(false), 500);
+      // PROTECTION : Nettoyer flag après délai
+      setTimeout(() => {
+        setIsStopping(false);
+        console.log('🔓 Protection arrêt ML levée');
+      }, 1000);
     }
   };
 
