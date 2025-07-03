@@ -194,7 +194,7 @@ def stop_irrigation():
 
 @irrigation_bp.route("/arroser", methods=["POST"])
 def arroser_ml():
-    """Endpoint ML pour l'arrosage intelligent avec nettoyage automatique"""
+    """Endpoint ML pour la prédiction UNIQUEMENT - SANS déclenchement automatique"""
     try:
         data = request.get_json()
         
@@ -255,37 +255,20 @@ def arroser_ml():
                 "message": "Erreur lors de la prédiction ML"
             }), 500
         
-        # Démarrer l'irrigation automatiquement
+        # IMPORTANT: NE PAS démarrer l'irrigation automatiquement
+        # L'admin doit cliquer explicitement sur "Démarrer" après voir la prédiction
         duration_minutes = prediction["duree_minutes"]
-        print(f"🚿 Démarrage irrigation ML: {duration_minutes} minutes")
-        
-        success, message = mqtt_service.demarrer_arrosage_async(
-            duration_minutes * 60,  # Convertir en secondes
-            volume_m3=prediction["volume_m3"],
-            source="ml"
-        )
-        
-        if success:
-            irrigation_state.update({
-                "isActive": True,
-                "type": "ml",
-                "startTime": time.time(),
-                "duration": duration_minutes,
-                "source": "ml",
-                "threadId": threading.current_thread().ident
-            })
-            print(f"✅ Irrigation ML démarrée: {duration_minutes} min")
-        else:
-            print(f"❌ Échec irrigation ML: {message}")
+        print(f"🤖 PRÉDICTION ML GÉNÉRÉE (SANS déclenchement auto): {duration_minutes} minutes")
         
         return jsonify({
             "status": "ok",
             "duree_minutes": prediction["duree_minutes"],
             "volume_eau_m3": prediction["volume_m3"],
-            "matt": f"Irrigation ML: {prediction['duree_minutes']:.1f} min - {prediction['volume_litres']:.0f}L",
-            "mqtt_started": success,
-            "mqtt_message": message,
-            "auto_irrigation": success
+            "matt": f"Prédiction ML: {prediction['duree_minutes']:.1f} min - {prediction['volume_litres']:.0f}L (VALIDATION ADMIN REQUISE)",
+            "mqtt_started": False,  # TOUJOURS False - pas de déclenchement auto
+            "auto_irrigation": False,  # TOUJOURS False - validation admin requise
+            "prediction_ready": True,  # Indique que la prédiction est prête
+            "requires_admin_validation": True  # Validation admin explicite requise
         }), 200
         
     except Exception as e:
@@ -294,6 +277,82 @@ def arroser_ml():
             "status": "error",
             "message": f"Erreur serveur ML: {str(e)}"
         }), 500
+
+@irrigation_bp.route("/irrigation/ml-start", methods=["POST"])
+def start_ml_irrigation():
+    """Démarre l'irrigation ML AVEC validation admin explicite"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"success": False, "message": "Données JSON requises"}), 400
+            
+        # Récupérer la prédiction ML validée par l'admin
+        duration_minutes = float(data.get("duration_minutes", 0))
+        volume_m3 = float(data.get("volume_m3", 0))
+        
+        if duration_minutes <= 0:
+            return jsonify({"success": False, "message": "Durée ML invalide"}), 400
+        
+        # Vérification sécurisée AVANT nettoyage automatique (irrigation ML)
+        if irrigation_state["isActive"] and irrigation_state["startTime"]:
+            elapsed = time.time() - irrigation_state["startTime"]
+            max_safe_duration = (irrigation_state["duration"] or 30) * 60 + 900  # +15min buffer
+            
+            if elapsed < max_safe_duration:
+                # Irrigation légitime en cours
+                print(f"⚠️ IRRIGATION ML ACTIVE LÉGITIME: {elapsed/60:.1f}min/{irrigation_state['duration']:.1f}min")
+                return jsonify({
+                    "success": False,
+                    "message": f"Irrigation {irrigation_state['type']} active depuis {elapsed/60:.1f}min. Temps restant estimé: {(max_safe_duration - elapsed)/60:.1f}min"
+                }), 400
+            else:
+                # Irrigation potentiellement bloquée
+                print(f"🧹 Irrigation possiblement bloquée détectée: {elapsed/60:.1f}min")
+                cleanup_stale_irrigation()
+        
+        # Double vérification après nettoyage potentiel
+        if irrigation_state["isActive"]:
+            print(f"⚠️ Irrigation toujours active après vérification: {irrigation_state}")
+            return jsonify({
+                "success": False,
+                "message": "Système d'irrigation occupé. Réessayez dans quelques minutes."
+            }), 400
+        
+        print(f"🚿 DÉMARRAGE IRRIGATION ML VALIDÉE PAR ADMIN: {duration_minutes} minutes")
+        
+        # Démarrer l'irrigation via MQTT avec validation admin
+        success, message = mqtt_service.demarrer_arrosage_async(
+            duration_minutes * 60,  # Convertir en secondes
+            volume_m3=volume_m3,
+            source="ml_admin_validated"
+        )
+        
+        if success:
+            irrigation_state.update({
+                "isActive": True,
+                "type": "ml",
+                "startTime": time.time(),
+                "duration": duration_minutes,
+                "source": "ml_admin_validated",
+                "threadId": threading.current_thread().ident
+            })
+            
+            print(f"✅ Irrigation ML ADMIN VALIDÉE démarrée: {duration_minutes} min")
+            return jsonify({
+                "success": True,
+                "message": f"Irrigation ML démarrée par admin pour {duration_minutes} minutes",
+                "mqtt_started": True,
+                "duration_minutes": duration_minutes,
+                "admin_validated": True
+            }), 200
+        else:
+            print(f"❌ Échec démarrage irrigation ML admin: {message}")
+            return jsonify({"success": False, "message": message}), 500
+            
+    except Exception as e:
+        print(f"❌ Erreur irrigation ML admin: {e}")
+        return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
 
 @irrigation_bp.route("/irrigation/analysis", methods=["GET"])
 def get_irrigation_analysis():

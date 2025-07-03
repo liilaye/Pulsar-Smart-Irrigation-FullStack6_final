@@ -20,6 +20,9 @@ export interface BackendResponse {
   success: boolean;
   message: string;
   data?: any;
+  mqtt_started?: boolean;
+  admin_validated?: boolean;
+  duration_minutes?: number;
 }
 
 export interface IrrigationSystem {
@@ -199,7 +202,7 @@ class BackendService {
 
   async arroserAvecML(features: number[]): Promise<MLPrediction> {
     try {
-      console.log('🤖 Envoi requête ML vers Flask backend...');
+      console.log('🤖 Génération PRÉDICTION ML via Flask backend (SANS déclenchement auto)...');
       console.log('📊 Features (15 valeurs):', features);
       
       const response = await this.makeRequest('/arroser', {
@@ -214,26 +217,58 @@ class BackendService {
       }
 
       const data = await response.json();
-      console.log('✅ Réponse ML Flask reçue:', data);
+      console.log('✅ PRÉDICTION ML Flask reçue (SANS auto-start):', data);
 
       if (data.status === 'ok') {
-        irrigationDataService.addIrrigation({
-          timestamp: new Date(),
-          volume_m3: data.volume_eau_m3,
-          duree_minutes: data.duree_minutes,
-          source: 'ml',
-          type: 'ml'
-        });
+        // PAS d'ajout automatique d'irrigation - juste la prédiction
+        console.log('🤖 PRÉDICTION ML générée - En attente validation admin');
         
-        if (data.auto_irrigation && data.mqtt_started) {
-          console.log('🚿 IRRIGATION ML AUTO DÉMARRÉE ! Durée:', data.duree_minutes, 'min');
+        // Validation que l'auto-irrigation est désactivée
+        if (data.auto_irrigation || data.mqtt_started) {
+          console.warn('⚠️ SÉCURITÉ: Auto-irrigation détectée dans la réponse - doit être False');
         }
       }
 
       return data;
     } catch (error) {
-      console.error('❌ Erreur requête ML Flask:', error);
-      await this.handleIrrigationError(error, 'irrigation ML');
+      console.error('❌ Erreur prédiction ML Flask:', error);
+      await this.handleIrrigationError(error, 'prédiction ML');
+    }
+  }
+
+  async startMLIrrigationWithAdminValidation(mlData: { duration_minutes: number; volume_m3: number }): Promise<BackendResponse> {
+    try {
+      console.log('🚿 DÉMARRAGE IRRIGATION ML AVEC VALIDATION ADMIN...');
+      const response = await this.makeRequest('/irrigation/ml-start', {
+        method: 'POST',
+        body: JSON.stringify(mlData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Erreur HTTP ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Réponse irrigation ML admin Flask:', data);
+
+      if (data.success && data.admin_validated) {
+        irrigationDataService.addIrrigation({
+          timestamp: new Date(),
+          volume_m3: mlData.volume_m3,
+          duree_minutes: mlData.duration_minutes,
+          source: 'ml_admin_validated',
+          type: 'ml'
+        });
+        
+        console.log('🚿 IRRIGATION ML ADMIN VALIDÉE DÉMARRÉE !');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Erreur irrigation ML admin Flask:', error);
+      await this.handleIrrigationError(error, 'irrigation ML admin');
     }
   }
 

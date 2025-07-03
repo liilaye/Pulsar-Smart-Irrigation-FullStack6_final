@@ -2,7 +2,7 @@ type IrrigationRecord = {
   timestamp: Date;
   volume_m3: number;
   duree_minutes: number;
-  source: 'manual' | 'ml' | 'schedule';
+  source: 'manual' | 'ml' | 'schedule' | 'ml_admin_validated';
   type: 'manual' | 'ml';
 };
 

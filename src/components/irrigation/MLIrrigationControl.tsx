@@ -81,7 +81,7 @@ export const MLIrrigationControl = () => {
           });
         }
       } else {
-        // DÉMARRER l'irrigation ML AUTO via Backend Flask
+        // DÉMARRER l'irrigation ML AVEC VALIDATION ADMIN EXPLICITE
         if (!lastMLRecommendation) {
           setLastMLCommand('Aucune recommandation ML disponible');
           toast.error("Aucune recommandation ML", {
@@ -90,22 +90,24 @@ export const MLIrrigationControl = () => {
           return;
         }
 
-        console.log('📤 Démarrage irrigation ML AUTO via Backend Flask...');
-        setLastMLCommand('Démarrage ML AUTO via Backend Flask...');
+        console.log('🚿 DÉMARRAGE IRRIGATION ML AVEC VALIDATION ADMIN...');
+        setLastMLCommand('Démarrage ML avec validation admin...');
         
-        const features = backendService.getDefaultSoilClimateFeatures();
-        const mlResponse = await backendService.arroserAvecML(features);
+        const mlStartResponse = await backendService.startMLIrrigationWithAdminValidation({
+          duration_minutes: lastMLRecommendation.duree_minutes,
+          volume_m3: lastMLRecommendation.volume_eau_m3
+        });
         
-        if (mlResponse.status === 'ok' && mlResponse.mqtt_started && mlResponse.auto_irrigation) {
+        if (mlStartResponse.success && mlStartResponse.admin_validated && mlStartResponse.mqtt_started) {
           setIsMLActive(true);
-          setLastMLCommand(`ML AUTO actif via Backend Flask: ${Math.floor(mlResponse.duree_minutes)} min`);
-          toast.success("Irrigation ML AUTO démarrée via Backend Flask", {
-            description: `IA activée: ${Math.floor(mlResponse.duree_minutes)} min automatique`
+          setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min`);
+          toast.success("Irrigation ML démarrée avec validation admin", {
+            description: `✅ Admin a validé: ${Math.floor(lastMLRecommendation.duree_minutes)} min automatique`
           });
         } else {
-          setLastMLCommand('Erreur démarrage ML AUTO Backend Flask');
-          toast.error("Erreur démarrage ML AUTO Backend Flask", {
-            description: mlResponse.matt || "Impossible de démarrer l'irrigation ML AUTO"
+          setLastMLCommand('Erreur validation admin ML Backend Flask');
+          toast.error("Erreur validation admin ML", {
+            description: mlStartResponse.message || "Impossible de démarrer l'irrigation ML avec validation admin"
           });
         }
       }
@@ -188,10 +190,20 @@ export const MLIrrigationControl = () => {
               {isLoading && isMLActive !== undefined ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <span>{isMLActive ? '🛑 Arrêter ML' : '🚀 Irrigation ML AUTO'}</span>
+                <span>{isMLActive ? '🛑 Arrêter ML' : '✅ DÉMARRER ML (Validation Admin)'}</span>
               )}
             </Button>
           </div>
+
+          {/* Avertissement validation admin */}
+          {lastMLRecommendation && !isMLActive && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                <strong>⚠️ Validation Admin Requise:</strong> La prédiction ML est prête. 
+                Cliquez sur "DÉMARRER ML" pour lancer l'irrigation avec validation admin.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Statut détaillé du système */}
