@@ -19,16 +19,18 @@ export const SimpleMLControl = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string>('');
   const [mlRecommendation, setMLRecommendation] = useState<MLRecommendation | null>(null);
+  const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
+  const [isMLActive, setIsMLActive] = useState(false); // État local ML
   const [autoStopTimer, setAutoStopTimer] = useState<NodeJS.Timeout | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const { isConnected, publishIrrigationCommand } = useMQTT();
   const irrigationStatus = useIrrigationStatus();
 
-  // L'irrigation est active si elle vient du ML ou manuelle
-  const isActive = irrigationStatus.isActive;
+  // L'irrigation est active selon notre état local ET le backend
+  const isActive = isMLActive || irrigationStatus.isActive;
 
   useEffect(() => {
-    if (!irrigationStatus.isActive && isActive !== irrigationStatus.isActive) {
+    if (!irrigationStatus.isActive && !isMLActive) {
       setLastAction('Irrigation ML terminée automatiquement');
       // Nettoyer le timer si l'irrigation s'arrête
       if (autoStopTimer) {
@@ -36,8 +38,9 @@ export const SimpleMLControl = () => {
         setAutoStopTimer(null);
       }
       setStartTime(null);
+      setIsMLActive(false);
     }
-  }, [irrigationStatus.isActive, isActive, autoStopTimer]);
+  }, [irrigationStatus.isActive, isMLActive, autoStopTimer]);
 
   const generateMLRecommendation = async () => {
     setIsLoading(true);
@@ -50,6 +53,7 @@ export const SimpleMLControl = () => {
       
       if (prediction && prediction.status === 'ok') {
         setMLRecommendation(prediction);
+        setMLInputFeatures(features); // SAUVEGARDER les features pour affichage
         setLastAction(`Recommandation ML: ${Math.floor(prediction.duree_minutes)} minutes`);
         toast.success("Recommandation ML générée", {
           description: `Durée: ${Math.floor(prediction.duree_minutes)} minutes`
@@ -89,6 +93,7 @@ export const SimpleMLControl = () => {
       const mqttSuccess = await publishIrrigationCommand(1);
       
       if (mqttSuccess) {
+        setIsMLActive(true); // ACTIVER l'état ML local
         setStartTime(new Date());
         setLastAction(`Irrigation ML active: ${Math.floor(mlRecommendation.duree_minutes)} minutes`);
         toast.success("Irrigation ML démarrée", {
@@ -131,6 +136,8 @@ export const SimpleMLControl = () => {
       const mqttSuccess = await publishIrrigationCommand(0);
       
       if (mqttSuccess) {
+        // DÉSACTIVER l'état ML local et nettoyer
+        setIsMLActive(false);
         // NETTOYER le timer et réinitialiser l'état
         if (autoStopTimer) {
           clearTimeout(autoStopTimer);
@@ -224,10 +231,10 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
             </div>
             
             {/* Timer en temps réel si irrigation active */}
-            {isActive && startTime && (
+            {isMLActive && startTime && (
               <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-green-700 font-medium">🚿 Irrigation en cours</span>
+                  <span className="text-green-700 font-medium">🚿 Irrigation ML en cours</span>
                   <MLTimerSimple 
                     startTime={startTime} 
                     durationMinutes={mlRecommendation.duree_minutes} 
@@ -235,6 +242,44 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* AFFICHAGE PARAMÈTRES ML EN TEMPS RÉEL pendant irrigation */}
+        {isMLActive && mlRecommendation && mlInputFeatures && (
+          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+            <h4 className="font-semibold text-green-800">📊 Paramètres ML en Temps Réel</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-3">
+              <div>
+                <strong className="text-green-700">Données d'Entrée (15 paramètres):</strong>
+                <div className="grid grid-cols-3 gap-1 mt-1 text-xs">
+                  <div>Temp Air: {mlInputFeatures[0]}°C</div>
+                  <div>Précip: {mlInputFeatures[1]}mm</div>
+                  <div>Humid Air: {mlInputFeatures[2]}%</div>
+                  <div>Vent: {mlInputFeatures[3]}km/h</div>
+                  <div>Culture: {mlInputFeatures[4]}</div>
+                  <div>Surface: {mlInputFeatures[5]}m²</div>
+                  <div>Temp Sol: {mlInputFeatures[6]}°C</div>
+                  <div>Humid Sol: {mlInputFeatures[7]}%</div>
+                  <div>EC: {mlInputFeatures[8]}dS/m</div>
+                  <div>pH: {mlInputFeatures[9]}</div>
+                  <div>N: {mlInputFeatures[10]}mg/kg</div>
+                  <div>P: {mlInputFeatures[11]}mg/kg</div>
+                  <div>K: {mlInputFeatures[12]}mg/kg</div>
+                  <div>Fertilité: {mlInputFeatures[13]}</div>
+                  <div>Type Sol: {mlInputFeatures[14]}</div>
+                </div>
+              </div>
+              <div>
+                <strong className="text-green-700">Prédiction ML:</strong>
+                <div className="mt-1 text-xs">
+                  <div>✅ Durée optimisée: {Math.floor(mlRecommendation.duree_minutes)} minutes</div>
+                  <div>✅ Volume calculé: {mlRecommendation.volume_eau_m3?.toFixed(3)} m³</div>
+                  <div>✅ Débit moyen: 20 L/min</div>
+                  <div>✅ Efficacité ML: {mlRecommendation.matt}</div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -261,12 +306,12 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
           <div className="flex gap-4">
             <Button
               onClick={handleStartML}
-              disabled={!isConnected || isLoading || !mlRecommendation || isActive}
+              disabled={!isConnected || isLoading || !mlRecommendation || isMLActive}
               variant="default"
               size="lg"
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
-              {isLoading && !isActive ? (
+            {isLoading && !isMLActive ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
               ) : (
                 <Power className="h-4 w-4 mr-2" />
@@ -276,12 +321,12 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
             
             <Button
               onClick={() => handleStopML()}
-              disabled={!isConnected || isLoading || !isActive}
+              disabled={!isConnected || isLoading || !isMLActive}
               variant="destructive"
               size="lg"
               className="flex-1"
             >
-              {isLoading && isActive ? (
+              {isLoading && isMLActive ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
               ) : (
                 <PowerOff className="h-4 w-4 mr-2" />
@@ -293,9 +338,9 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
           {/* Statut */}
           <div className="text-center">
             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+              isMLActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
             }`}>
-              {isActive ? 'IRRIGATION EN COURS' : 'IRRIGATION ARRÊTÉE'}
+              {isMLActive ? 'IRRIGATION ML EN COURS' : 'IRRIGATION ARRÊTÉE'}
             </div>
             {lastAction && (
               <div className="text-xs text-gray-500 mt-2">
