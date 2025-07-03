@@ -77,26 +77,43 @@ class MQTTService:
             # Démarrer l'irrigation
             status_start, _ = self.envoyer_commande_mqtt(1)
             log_irrigation("START", duree_sec / 60, volume_m3, f"MQTT_START_{status_start}", source)
-            print(f"🚿 Arrosage lancé pour {duree_sec} secondes")
+            print(f"🚿 ARROSAGE {source.upper()} SÉCURISÉ lancé pour {duree_sec} secondes ({duree_sec/60:.1f} min)")
             
-            # Attente avec possibilité d'interruption
-            if self.stop_irrigation_event.wait(timeout=duree_sec):
-                print("⏹️ Arrosage interrompu par signal d'arrêt")
-            else:
-                print("⏰ Durée d'arrosage écoulée")
+            # ATTENTE SÉCURISÉE avec logging détaillé
+            start_time = time.time()
+            check_interval = 30  # Vérification toutes les 30 secondes
+            
+            while True:
+                remaining_time = duree_sec - (time.time() - start_time)
+                
+                if remaining_time <= 0:
+                    print(f"⏰ DURÉE COMPLÈTE ATTEINTE: {duree_sec/60:.1f} min écoulées")
+                    break
+                
+                # Vérifier signal d'arrêt avec timeout court
+                if self.stop_irrigation_event.wait(timeout=min(check_interval, remaining_time)):
+                    print(f"⏹️ ARRÊT MANUEL DÉTECTÉ après {(time.time() - start_time)/60:.1f} min")
+                    break
+                
+                # Log de progression toutes les 30 secondes
+                elapsed = (time.time() - start_time) / 60
+                print(f"✅ Irrigation {source} en cours: {elapsed:.1f}/{duree_sec/60:.1f} min")
             
             # Arrêter l'irrigation
             status_stop, _ = self.envoyer_commande_mqtt(0)
-            log_irrigation("STOP", duree_sec / 60, volume_m3, f"MQTT_STOP_{status_stop}", source)
-            print("⏹️ Arrosage terminé")
+            final_duration = (time.time() - start_time) / 60
+            log_irrigation("STOP", final_duration, volume_m3, f"MQTT_STOP_{status_stop}", source)
+            print(f"⏹️ ARROSAGE {source.upper()} TERMINÉ: {final_duration:.1f} min effectives")
             
         except Exception as e:
-            print(f"❌ Erreur séquence arrosage: {e}")
+            error_time = (time.time() - locals().get('start_time', time.time())) / 60 if 'start_time' in locals() else 0
+            print(f"❌ ERREUR CRITIQUE séquence arrosage après {error_time:.1f} min: {e}")
             self.envoyer_commande_mqtt(0)
-            log_irrigation("ERROR", None, None, f"ERROR_{str(e)}", source)
+            log_irrigation("ERROR", error_time, None, f"ERROR_{str(e)}", source)
         finally:
             # Nettoyer le thread courant
             self.current_irrigation_thread = None
+            print(f"🧹 Thread irrigation {source} nettoyé")
 
     def demarrer_arrosage_async(self, duree_sec: int, volume_m3: float = None, source: str = "manual"):
         # Vérifier si un thread d'irrigation est déjà actif

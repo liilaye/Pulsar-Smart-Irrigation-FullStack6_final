@@ -20,13 +20,14 @@ irrigation_state = {
 }
 
 def cleanup_stale_irrigation():
-    """Nettoie automatiquement les irrigations bloquées"""
+    """Nettoie automatiquement les irrigations bloquées - VERSION SÉCURISÉE"""
     global irrigation_state
     if irrigation_state["isActive"] and irrigation_state["startTime"]:
         elapsed = time.time() - irrigation_state["startTime"]
-        max_duration = (irrigation_state["duration"] or 30) * 60 + 300  # +5min buffer
+        # BUFFER PLUS LARGE: +15min au lieu de +5min pour éviter interruptions prématurées
+        max_duration = (irrigation_state["duration"] or 30) * 60 + 900  # +15min buffer sécurisé
         if elapsed > max_duration:
-            print(f"🧹 Nettoyage automatique irrigation bloquée ({elapsed/60:.1f}min)")
+            print(f"🧹 NETTOYAGE SÉCURISÉ irrigation vraiment bloquée ({elapsed/60:.1f}min > {max_duration/60:.1f}min)")
             mqtt_service.arreter_arrosage()
             irrigation_state.update({
                 "isActive": False,
@@ -37,6 +38,8 @@ def cleanup_stale_irrigation():
                 "threadId": None
             })
             return True
+        else:
+            print(f"✅ Irrigation active normale: {elapsed/60:.1f}min/{(irrigation_state['duration'] or 30):.1f}min + buffer")
     return False
 
 @irrigation_bp.route("/irrigation/status", methods=["GET"])
@@ -103,15 +106,29 @@ def start_manual_irrigation():
         if total_minutes <= 0:
             return jsonify({"success": False, "message": "Durée invalide"}), 400
         
-        # Nettoyage automatique avant de vérifier l'état
-        cleanup_stale_irrigation()
+        # Vérification sécurisée AVANT nettoyage automatique (irrigation manuelle)
+        if irrigation_state["isActive"] and irrigation_state["startTime"]:
+            elapsed = time.time() - irrigation_state["startTime"]
+            max_safe_duration = (irrigation_state["duration"] or 30) * 60 + 900  # +15min buffer
+            
+            if elapsed < max_safe_duration:
+                # Irrigation légitime en cours
+                print(f"⚠️ IRRIGATION MANUELLE ACTIVE LÉGITIME: {elapsed/60:.1f}min/{irrigation_state['duration']:.1f}min")
+                return jsonify({
+                    "success": False,
+                    "message": f"Irrigation {irrigation_state['type']} active depuis {elapsed/60:.1f}min. Temps restant estimé: {(max_safe_duration - elapsed)/60:.1f}min"
+                }), 400
+            else:
+                # Irrigation potentiellement bloquée
+                print(f"🧹 Irrigation possiblement bloquée détectée: {elapsed/60:.1f}min")
+                cleanup_stale_irrigation()
         
-        # Vérifier si une irrigation est déjà active
+        # Double vérification après nettoyage potentiel
         if irrigation_state["isActive"]:
-            print(f"⚠️ Tentative démarrage irrigation mais irrigation active: {irrigation_state}")
+            print(f"⚠️ Irrigation toujours active après vérification: {irrigation_state}")
             return jsonify({
-                "success": False, 
-                "message": "Arrosage en cours. Utilisez /irrigation/reset pour forcer l'arrêt."
+                "success": False,
+                "message": "Système d'irrigation occupé. Réessayez dans quelques minutes."
             }), 400
         
         print(f"🚿 Démarrage irrigation manuelle: {total_minutes} minutes")
@@ -195,15 +212,29 @@ def arroser_ml():
                 "message": "15 features requises pour le modèle ML"
             }), 400
         
-        # Nettoyage automatique avant de vérifier l'état
-        cleanup_stale_irrigation()
+        # Vérification sécurisée AVANT nettoyage automatique
+        if irrigation_state["isActive"] and irrigation_state["startTime"]:
+            elapsed = time.time() - irrigation_state["startTime"]
+            max_safe_duration = (irrigation_state["duration"] or 30) * 60 + 900  # +15min buffer
+            
+            if elapsed < max_safe_duration:
+                # Irrigation légitime en cours
+                print(f"⚠️ IRRIGATION ML ACTIVE LÉGITIME: {elapsed/60:.1f}min/{irrigation_state['duration']:.1f}min")
+                return jsonify({
+                    "status": "error",
+                    "message": f"Irrigation {irrigation_state['type']} active depuis {elapsed/60:.1f}min. Temps restant estimé: {(max_safe_duration - elapsed)/60:.1f}min"
+                }), 400
+            else:
+                # Irrigation potentiellement bloquée
+                print(f"🧹 Irrigation possiblement bloquée détectée: {elapsed/60:.1f}min")
+                cleanup_stale_irrigation()
         
-        # Vérifier si une irrigation est déjà active
+        # Double vérification après nettoyage potentiel
         if irrigation_state["isActive"]:
-            print(f"⚠️ Tentative démarrage ML mais irrigation active: {irrigation_state}")
+            print(f"⚠️ Irrigation toujours active après vérification: {irrigation_state}")
             return jsonify({
-                "status": "error",
-                "message": "Arrosage en cours. Utilisez /irrigation/reset pour forcer l'arrêt."
+                "status": "error", 
+                "message": "Système d'irrigation occupé. Réessayez dans quelques minutes."
             }), 400
         
         print("🤖 Début prédiction ML...")
