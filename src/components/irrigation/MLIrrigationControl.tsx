@@ -7,6 +7,8 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { useMQTT } from '@/hooks/useMQTT';
 import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
+import { useEffect } from 'react';
+import { activeUserService } from '@/services/activeUserService';
 
 interface MLRecommendation {
   duree_minutes: number;
@@ -24,6 +26,30 @@ export const MLIrrigationControl = () => {
   const [lastMLCommand, setLastMLCommand] = useState<string | null>(null);
   const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
   const { isConnected } = useMQTT();
+
+  // SÉCURITÉ CRITIQUE: Réinitialisation complète de l'état ML lors du changement d'acteur
+  useEffect(() => {
+    const resetMLState = () => {
+      console.log('🔄 RESET COMPLET état ML pour nouvel acteur');
+      setLastMLRecommendation(null);
+      setIsMLActive(false); // TOUJOURS inactif par défaut
+      setIsLoading(false);
+      setLastMLCommand(null);
+      setMLInputFeatures(null);
+    };
+
+    // S'abonner aux changements d'utilisateur actif pour reset automatique
+    const unsubscribe = activeUserService.subscribe((user) => {
+      if (user) {
+        resetMLState();
+      }
+    });
+
+    // Reset initial
+    resetMLState();
+
+    return unsubscribe;
+  }, []);
 
   const handleMLRecommendation = async () => {
     if (isLoading) return;
