@@ -7,6 +7,7 @@ import { useMQTT } from '@/hooks/useMQTT';
 import { useIrrigationStatus } from '@/hooks/useIrrigationStatus';
 import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
+import { irrigationDataService } from '@/services/irrigationDataService';
 
 interface MLRecommendation {
   duree_minutes: number;
@@ -22,6 +23,7 @@ export const SimpleMLControl = () => {
   const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
   const [isMLActive, setIsMLActive] = useState(false); // État local ML
   const [isStopping, setIsStopping] = useState(false); // Garde contre double arrêt
+  const [mlSessionId, setMLSessionId] = useState<string | null>(null); // ID session pour graphiques
   const [autoStopTimer, setAutoStopTimer] = useState<NodeJS.Timeout | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const { isConnected, publishIrrigationCommand } = useMQTT();
@@ -40,6 +42,12 @@ export const SimpleMLControl = () => {
 
   // Fonction de nettoyage centralisée
   const cleanupMLState = () => {
+    // Terminer la session graphique si active
+    if (mlSessionId) {
+      irrigationDataService.endIrrigationSession(mlSessionId);
+      setMLSessionId(null);
+    }
+    
     if (autoStopTimer) {
       clearTimeout(autoStopTimer);
       setAutoStopTimer(null);
@@ -100,6 +108,10 @@ export const SimpleMLControl = () => {
       const mqttSuccess = await publishIrrigationCommand(1);
       
       if (mqttSuccess) {
+        // DÉMARRER session irrigation dans le service graphique
+        const sessionId = irrigationDataService.startIrrigationSession('ml', 'ml_manual');
+        setMLSessionId(sessionId);
+        
         setIsMLActive(true); // ACTIVER l'état ML local
         setStartTime(new Date());
         setLastAction(`Irrigation ML active: ${Math.floor(mlRecommendation.duree_minutes)} minutes`);
@@ -155,8 +167,18 @@ export const SimpleMLControl = () => {
       const mqttSuccess = await publishIrrigationCommand(0);
       
       if (mqttSuccess) {
+        // TERMINER la session graphique avec la durée ML effective
+        if (mlSessionId) {
+          const actualDuration = startTime ? (Date.now() - startTime.getTime()) / (1000 * 60) : mlRecommendation?.duree_minutes;
+          irrigationDataService.endIrrigationSession(mlSessionId, actualDuration);
+          setMLSessionId(null);
+        }
+        
         // NETTOYER IMMÉDIATEMENT l'état ML pour éviter conflits
         cleanupMLState();
+        
+        console.log(`📊 Session ML terminée pour graphiques: ${reason}`);
+        setLastAction(`Irrigation ML arrêtée (${reason})`);
         
         setLastAction(`Irrigation ML arrêtée (${reason})`);
         toast.success(`Irrigation ML arrêtée`, {

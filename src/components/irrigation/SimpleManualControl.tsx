@@ -9,9 +9,11 @@ import { useMQTT } from '@/hooks/useMQTT';
 import { useIrrigationStatus } from '@/hooks/useIrrigationStatus';
 import { backendService } from '@/services/backendService';
 import { toast } from "sonner";
+import { irrigationDataService } from '@/services/irrigationDataService';
 
 export const SimpleManualControl = () => {
   const [duration, setDuration] = useState({ hours: '0', minutes: '30' });
+  const [manualSessionId, setManualSessionId] = useState<string | null>(null); // Session graphique
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string>('');
   const { isConnected } = useMQTT();
@@ -22,9 +24,14 @@ export const SimpleManualControl = () => {
 
   useEffect(() => {
     if (!irrigationStatus.isActive && isActive !== irrigationStatus.isActive) {
+      // Terminer la session graphique automatiquement
+      if (manualSessionId) {
+        irrigationDataService.endIrrigationSession(manualSessionId);
+        setManualSessionId(null);
+      }
       setLastAction('Irrigation terminée automatiquement');
     }
-  }, [irrigationStatus.isActive, isActive]);
+  }, [irrigationStatus.isActive, isActive, manualSessionId]);
 
   const getTotalMinutes = () => {
     const hours = parseInt(duration.hours) || 0;
@@ -53,6 +60,10 @@ export const SimpleManualControl = () => {
       );
       
       if (response.success) {
+        // DÉMARRER session graphique manuelle
+        const sessionId = irrigationDataService.startIrrigationSession('manual', 'manual');
+        setManualSessionId(sessionId);
+        
         setLastAction(`Irrigation active: ${totalMinutes} minutes`);
         toast.success("Irrigation démarrée", {
           description: `Durée: ${totalMinutes} minutes`
@@ -83,6 +94,12 @@ export const SimpleManualControl = () => {
       const response = await backendService.stopIrrigation();
       
       if (response.success) {
+        // TERMINER session graphique manuelle
+        if (manualSessionId) {
+          irrigationDataService.endIrrigationSession(manualSessionId);
+          setManualSessionId(null);
+        }
+        
         setLastAction('Irrigation arrêtée');
         toast.success("Irrigation arrêtée");
       } else {
