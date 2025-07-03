@@ -7,6 +7,7 @@ import { useMLIrrigation } from '@/hooks/useMLIrrigation';
 import { MLRecommendationDisplay } from './MLRecommendationDisplay';
 import { MLControlButtons } from './MLControlButtons';
 import { MLParametersDisplay } from './MLParametersDisplay';
+import { MLTimerDisplay } from './MLTimerDisplay';
 import { MLConnectionStatus } from './MLConnectionStatus';
 
 export const MLIrrigationControl = () => {
@@ -17,6 +18,7 @@ export const MLIrrigationControl = () => {
     isLoading,
     lastMLCommand,
     mlInputFeatures,
+    startTime,
     generateMLRecommendation,
     toggleMLIrrigation
   } = useMLIrrigation();
@@ -41,6 +43,15 @@ export const MLIrrigationControl = () => {
         {/* Dernière recommandation ML */}
         {lastMLRecommendation && (
           <MLRecommendationDisplay recommendation={lastMLRecommendation} />
+        )}
+
+        {/* Timer temps restant si ML actif */}
+        {isMLActive && lastMLRecommendation && (
+          <MLTimerDisplay 
+            isMLActive={isMLActive}
+            startTime={startTime}
+            durationMinutes={lastMLRecommendation.duree_minutes}
+          />
         )}
 
         {/* Statut de la dernière commande */}

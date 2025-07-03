@@ -19,6 +19,8 @@ export const useMLIrrigation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastMLCommand, setLastMLCommand] = useState<string | null>(null);
   const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [autoStopTimer, setAutoStopTimer] = useState<NodeJS.Timeout | null>(null);
   
   // AJOUT CRITIQUE : Hook MQTT pour communication broker
   const { publishIrrigationCommand } = useMQTT();
@@ -31,6 +33,13 @@ export const useMLIrrigation = () => {
       setIsLoading(false);
       setLastMLCommand(null);
       setMLInputFeatures(null);
+      setStartTime(null);
+      
+      // NETTOYER le timer auto-stop si actif
+      if (autoStopTimer) {
+        clearTimeout(autoStopTimer);
+        setAutoStopTimer(null);
+      }
     };
 
     const unsubscribe = activeUserService.subscribe((user) => {
@@ -41,7 +50,46 @@ export const useMLIrrigation = () => {
 
     resetMLState();
     return unsubscribe;
-  }, []);
+  }, [autoStopTimer]);
+
+  // FONCTION D'ARRÊT CRITIQUE (manuelle OU automatique)
+  const stopMLIrrigation = useCallback(async (isAutoStop = false) => {
+    const reason = isAutoStop ? 'Timer ML écoulé' : 'Arrêt manuel d\'urgence';
+    setLastMLCommand(`${reason} - Arrêt via MQTT + Backend...`);
+    
+    // 1. PRIORITÉ : Commande MQTT OFF au broker (CRITIQUE)
+    const mqttSuccess = await publishIrrigationCommand(0);
+    
+    // 2. CONFIRMER avec Backend Flask
+    const response = await backendService.stopIrrigation();
+    
+    // 3. NETTOYER l'état
+    setIsMLActive(false);
+    setMLInputFeatures(null);
+    setStartTime(null);
+    
+    if (autoStopTimer) {
+      clearTimeout(autoStopTimer);
+      setAutoStopTimer(null);
+    }
+    
+    setLastMLCommand(`${reason} terminé - MQTT: ${mqttSuccess ? '✅' : '❌'} Backend: ${response.success ? '✅' : '❌'}`);
+    
+    toast.success(`Irrigation ML arrêtée (${isAutoStop ? 'Timer' : 'Manuel'})`, {
+      description: `Broker: ${mqttSuccess ? 'OFF envoyé' : 'Échec'} | Backend: ${response.success ? 'OK' : 'Erreur'}`
+    });
+    
+    return { mqttSuccess, backendSuccess: response.success };
+  }, [publishIrrigationCommand, autoStopTimer]);
+
+  // NETTOYAGE au démontage du composant
+  useEffect(() => {
+    return () => {
+      if (autoStopTimer) {
+        clearTimeout(autoStopTimer);
+      }
+    };
+  }, [autoStopTimer]);
 
   const generateMLRecommendation = useCallback(async () => {
     if (isLoading) return;
@@ -78,28 +126,8 @@ export const useMLIrrigation = () => {
     
     try {
       if (isMLActive) {
-        // ARRÊTER l'irrigation ML
-        setLastMLCommand('Arrêt ML via Backend Flask + MQTT...');
-        
-        // 1. COMMANDE MQTT DIRECTE AU BROKER (priorité)
-        const mqttSuccess = await publishIrrigationCommand(0);
-        
-        // 2. COMMANDE BACKEND FLASK
-        const response = await backendService.stopIrrigation();
-        
-        if (response.success || mqttSuccess) {
-          setIsMLActive(false);
-          setMLInputFeatures(null);
-          setLastMLCommand(`Irrigation ML arrêtée - MQTT: ${mqttSuccess ? '✅' : '❌'} Backend: ${response.success ? '✅' : '❌'}`);
-          toast.success("Irrigation ML arrêtée", {
-            description: `Broker: ${mqttSuccess ? 'STOP envoyé' : 'Échec'} | Backend: ${response.success ? 'OK' : 'Erreur'}`
-          });
-        } else {
-          setLastMLCommand('Erreur arrêt ML - Tous les canaux ont échoué');
-          toast.error("Erreur arrêt ML", {
-            description: "Échec MQTT + Backend - Vérifiez la connexion"
-          });
-        }
+        // ARRÊT MANUEL D'URGENCE
+        await stopMLIrrigation(false);
       } else {
         // DÉMARRER l'irrigation ML
         if (!lastMLRecommendation) {
@@ -121,11 +149,27 @@ export const useMLIrrigation = () => {
           // DOUBLE VALIDATION : Backend + Commande MQTT directe
           const mqttSuccess = await publishIrrigationCommand(1);
           
-          setIsMLActive(true);
-          setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min - MQTT: ${mqttSuccess ? '✅' : '❌'}`);
-          toast.success("Irrigation ML démarrée avec validation admin", {
-            description: `✅ Admin validé: ${Math.floor(lastMLRecommendation.duree_minutes)} min | Broker: ${mqttSuccess ? 'Connecté' : 'Problème'}`
-          });
+          if (mqttSuccess) {
+            setIsMLActive(true);
+            setStartTime(new Date());
+            
+            // PROGRAMMATION ARRÊT AUTOMATIQUE après durée ML
+            const durationMs = lastMLRecommendation.duree_minutes * 60 * 1000;
+            const timer = setTimeout(async () => {
+              await stopMLIrrigation(true); // Arrêt automatique
+            }, durationMs);
+            setAutoStopTimer(timer);
+            
+            setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min - Arrêt auto programmé`);
+            toast.success("Irrigation ML démarrée avec validation admin", {
+              description: `✅ ${Math.floor(lastMLRecommendation.duree_minutes)} min | Arrêt auto: ${new Date(Date.now() + durationMs).toLocaleTimeString()}`
+            });
+          } else {
+            setLastMLCommand('Erreur: Backend OK mais échec MQTT');
+            toast.error("Erreur communication MQTT", {
+              description: "Backend validé mais impossible d'envoyer au broker"
+            });
+          }
         } else {
           setLastMLCommand('Erreur validation admin ML ou problème MQTT');
           toast.error("Erreur démarrage ML", {
@@ -141,7 +185,7 @@ export const useMLIrrigation = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, isMLActive, lastMLRecommendation, publishIrrigationCommand]);
+  }, [isLoading, isMLActive, lastMLRecommendation, publishIrrigationCommand, stopMLIrrigation]);
 
   return {
     lastMLRecommendation,
@@ -149,7 +193,9 @@ export const useMLIrrigation = () => {
     isLoading,
     lastMLCommand,
     mlInputFeatures,
+    startTime,
     generateMLRecommendation,
-    toggleMLIrrigation
+    toggleMLIrrigation,
+    stopMLIrrigation // EXPOSER pour usage externe si besoin
   };
 };
