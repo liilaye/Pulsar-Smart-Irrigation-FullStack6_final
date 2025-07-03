@@ -129,58 +129,46 @@ export const useMLIrrigation = () => {
         // ARRÊT MANUEL D'URGENCE
         await stopMLIrrigation(false);
       } else {
-        // DÉMARRER l'irrigation ML
+        // DÉMARRER l'irrigation ML DIRECT
         if (!lastMLRecommendation) {
-          setLastMLCommand('Aucune recommandation ML disponible');
+          setLastMLCommand('Générez d\'abord une recommandation ML');
           toast.error("Aucune recommandation ML", {
-            description: "Générez d'abord une recommandation ML"
+            description: "Cliquez sur 'Générer Recommandation ML' d'abord"
           });
           return;
         }
 
-        setLastMLCommand('Démarrage ML avec validation admin...');
+        setLastMLCommand('Démarrage ML direct via MQTT...');
         
-        const mlStartResponse = await backendService.startMLIrrigationWithAdminValidation({
-          duration_minutes: lastMLRecommendation.duree_minutes,
-          volume_m3: lastMLRecommendation.volume_eau_m3
-        });
+        // ENVOI DIRECT de la commande MQTT sans validation admin
+        const mqttSuccess = await publishIrrigationCommand(1);
         
-        if (mlStartResponse.success && mlStartResponse.admin_validated && mlStartResponse.mqtt_started) {
-          // DOUBLE VALIDATION : Backend + Commande MQTT directe
-          const mqttSuccess = await publishIrrigationCommand(1);
+        if (mqttSuccess) {
+          setIsMLActive(true);
+          setStartTime(new Date());
           
-          if (mqttSuccess) {
-            setIsMLActive(true);
-            setStartTime(new Date());
-            
-            // PROGRAMMATION ARRÊT AUTOMATIQUE après durée ML
-            const durationMs = lastMLRecommendation.duree_minutes * 60 * 1000;
-            const timer = setTimeout(async () => {
-              await stopMLIrrigation(true); // Arrêt automatique
-            }, durationMs);
-            setAutoStopTimer(timer);
-            
-            setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min - Arrêt auto programmé`);
-            toast.success("Irrigation ML démarrée avec validation admin", {
-              description: `✅ ${Math.floor(lastMLRecommendation.duree_minutes)} min | Arrêt auto: ${new Date(Date.now() + durationMs).toLocaleTimeString()}`
-            });
-          } else {
-            setLastMLCommand('Erreur: Backend OK mais échec MQTT');
-            toast.error("Erreur communication MQTT", {
-              description: "Backend validé mais impossible d'envoyer au broker"
-            });
-          }
+          // PROGRAMMATION ARRÊT AUTOMATIQUE après durée ML
+          const durationMs = lastMLRecommendation.duree_minutes * 60 * 1000;
+          const timer = setTimeout(async () => {
+            await stopMLIrrigation(true); // Arrêt automatique
+          }, durationMs);
+          setAutoStopTimer(timer);
+          
+          setLastMLCommand(`✅ ML DÉMARRÉ: ${Math.floor(lastMLRecommendation.duree_minutes)} min - Arrêt auto programmé`);
+          toast.success("Irrigation ML démarrée", {
+            description: `✅ ${Math.floor(lastMLRecommendation.duree_minutes)} min | Arrêt auto: ${new Date(Date.now() + durationMs).toLocaleTimeString()}`
+          });
         } else {
-          setLastMLCommand('Erreur validation admin ML ou problème MQTT');
-          toast.error("Erreur démarrage ML", {
-            description: mlStartResponse.message || "Validation admin ou communication MQTT échouée"
+          setLastMLCommand('❌ Échec envoi commande MQTT');
+          toast.error("Erreur communication MQTT", {
+            description: "Impossible d'envoyer la commande au broker"
           });
         }
       }
     } catch (error) {
-      setLastMLCommand('Erreur ML système Backend Flask + MQTT');
+      setLastMLCommand('❌ Erreur système ML + MQTT');
       toast.error("Erreur système ML", {
-        description: "Problème de communication Backend Flask + Broker MQTT"
+        description: "Problème de communication avec le broker MQTT"
       });
     } finally {
       setIsLoading(false);

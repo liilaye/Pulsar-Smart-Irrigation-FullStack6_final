@@ -36,7 +36,7 @@ export const MLControlButtons = ({
 
         <Button
           onClick={onToggleML}
-          disabled={isLoading || (!hasRecommendation && !isMLActive)}
+          disabled={isLoading}
           variant={isMLActive ? "destructive" : "default"}
           size="lg"
           className={`h-12 flex items-center justify-center space-x-2 min-w-[200px] ${
