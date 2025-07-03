@@ -21,6 +21,7 @@ export const SimpleMLControl = () => {
   const [mlRecommendation, setMLRecommendation] = useState<MLRecommendation | null>(null);
   const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
   const [isMLActive, setIsMLActive] = useState(false); // État local ML
+  const [isStopping, setIsStopping] = useState(false); // Garde contre double arrêt
   const [autoStopTimer, setAutoStopTimer] = useState<NodeJS.Timeout | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const { isConnected, publishIrrigationCommand } = useMQTT();
@@ -32,15 +33,21 @@ export const SimpleMLControl = () => {
   useEffect(() => {
     if (!irrigationStatus.isActive && !isMLActive) {
       setLastAction('Irrigation ML terminée automatiquement');
-      // Nettoyer le timer si l'irrigation s'arrête
-      if (autoStopTimer) {
-        clearTimeout(autoStopTimer);
-        setAutoStopTimer(null);
-      }
-      setStartTime(null);
-      setIsMLActive(false);
+      // Nettoyer TOUT lors de l'arrêt complet
+      cleanupMLState();
     }
-  }, [irrigationStatus.isActive, isMLActive, autoStopTimer]);
+  }, [irrigationStatus.isActive, isMLActive]);
+
+  // Fonction de nettoyage centralisée
+  const cleanupMLState = () => {
+    if (autoStopTimer) {
+      clearTimeout(autoStopTimer);
+      setAutoStopTimer(null);
+    }
+    setStartTime(null);
+    setIsMLActive(false);
+    setIsStopping(false);
+  };
 
   const generateMLRecommendation = async () => {
     setIsLoading(true);
@@ -104,7 +111,9 @@ export const SimpleMLControl = () => {
         const durationMs = mlRecommendation.duree_minutes * 60 * 1000;
         const timer = setTimeout(async () => {
           console.log('⏰ Timer ML écoulé - Arrêt automatique');
-          await handleStopML(true); // true = arrêt automatique
+          if (isMLActive && !isStopping) { // Vérifier avant d'arrêter
+            await handleStopML(true); // true = arrêt automatique
+          }
         }, durationMs);
         setAutoStopTimer(timer);
         
@@ -125,6 +134,13 @@ export const SimpleMLControl = () => {
   };
 
   const handleStopML = async (isAutoStop = false) => {
+    // GARDE : Éviter les doubles appels
+    if (isStopping || !isMLActive) {
+      console.log('⚠️ Arrêt ML déjà en cours ou pas actif, ignoré');
+      return;
+    }
+
+    setIsStopping(true); // BLOQUER autres appels
     setIsLoading(true);
     const reason = isAutoStop ? 'Timer ML écoulé' : 'Arrêt manuel';
     setLastAction(`${reason} - Arrêt irrigation ML...`);
@@ -132,46 +148,46 @@ export const SimpleMLControl = () => {
     try {
       console.log(`⏹️ ${reason} - Arrêt irrigation ML directe`);
       
+      // PETIT DÉLAI pour éviter conflits buffer MQTT
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // ENVOI DIRECT MQTT device 0 (comme manuel)
       const mqttSuccess = await publishIrrigationCommand(0);
       
       if (mqttSuccess) {
-        // DÉSACTIVER l'état ML local et nettoyer
-        setIsMLActive(false);
-        // NETTOYER le timer et réinitialiser l'état
-        if (autoStopTimer) {
-          clearTimeout(autoStopTimer);
-          setAutoStopTimer(null);
-        }
-        setStartTime(null);
+        // NETTOYER IMMÉDIATEMENT l'état ML pour éviter conflits
+        cleanupMLState();
         
         setLastAction(`Irrigation ML arrêtée (${reason})`);
         toast.success(`Irrigation ML arrêtée`, {
-          description: isAutoStop ? "Durée ML terminée automatiquement" : "Arrêt manuel"
+          description: isAutoStop ? "Durée ML terminée automatiquement" : "Arrêt manuel d'urgence"
         });
       } else {
-        setLastAction('Erreur arrêt MQTT');
-        toast.error("Erreur MQTT", {
-          description: "Impossible d'envoyer la commande d'arrêt"
+        // En cas d'échec, réinitialiser quand même l'état
+        setIsStopping(false);
+        setLastAction(`Erreur arrêt MQTT (${reason})`);
+        toast.error("Erreur MQTT - Arrêt ML", {
+          description: `Impossible d'envoyer commande d'arrêt (${reason})`
         });
       }
     } catch (error) {
-      console.error('❌ Erreur arrêt ML:', error);
-      setLastAction('Erreur de communication');
-      toast.error("Erreur de communication");
+      console.error(`❌ Erreur arrêt ML (${reason}):`, error);
+      setIsStopping(false);
+      setLastAction(`Erreur système arrêt (${reason})`);
+      toast.error("Erreur système ML");
     } finally {
       setIsLoading(false);
+      // S'assurer que le flag de protection est nettoyé
+      setTimeout(() => setIsStopping(false), 500);
     }
   };
 
-  // Nettoyer le timer au démontage du composant
+  // Nettoyer TOUS les timers au démontage du composant
   useEffect(() => {
     return () => {
-      if (autoStopTimer) {
-        clearTimeout(autoStopTimer);
-      }
+      cleanupMLState();
     };
-  }, [autoStopTimer]);
+  }, []);
 
 // Composant Timer simple
 const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durationMinutes: number }) => {
@@ -321,7 +337,7 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
             
             <Button
               onClick={() => handleStopML()}
-              disabled={!isConnected || isLoading || !isMLActive}
+              disabled={!isConnected || isLoading || !isMLActive || isStopping}
               variant="destructive"
               size="lg"
               className="flex-1"
