@@ -19,6 +19,8 @@ export const SimpleMLControl = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastAction, setLastAction] = useState<string>('');
   const [mlRecommendation, setMLRecommendation] = useState<MLRecommendation | null>(null);
+  const [autoStopTimer, setAutoStopTimer] = useState<NodeJS.Timeout | null>(null);
+  const [startTime, setStartTime] = useState<Date | null>(null);
   const { isConnected, publishIrrigationCommand } = useMQTT();
   const irrigationStatus = useIrrigationStatus();
 
@@ -28,8 +30,14 @@ export const SimpleMLControl = () => {
   useEffect(() => {
     if (!irrigationStatus.isActive && isActive !== irrigationStatus.isActive) {
       setLastAction('Irrigation ML terminée automatiquement');
+      // Nettoyer le timer si l'irrigation s'arrête
+      if (autoStopTimer) {
+        clearTimeout(autoStopTimer);
+        setAutoStopTimer(null);
+      }
+      setStartTime(null);
     }
-  }, [irrigationStatus.isActive, isActive]);
+  }, [irrigationStatus.isActive, isActive, autoStopTimer]);
 
   const generateMLRecommendation = async () => {
     setIsLoading(true);
@@ -81,15 +89,21 @@ export const SimpleMLControl = () => {
       const mqttSuccess = await publishIrrigationCommand(1);
       
       if (mqttSuccess) {
+        setStartTime(new Date());
         setLastAction(`Irrigation ML active: ${Math.floor(mlRecommendation.duree_minutes)} minutes`);
         toast.success("Irrigation ML démarrée", {
           description: `Durée: ${Math.floor(mlRecommendation.duree_minutes)} minutes`
         });
         
-        // Programmer l'arrêt automatique
-        setTimeout(async () => {
-          await handleStopML();
-        }, mlRecommendation.duree_minutes * 60 * 1000);
+        // PROGRAMMATION ARRÊT AUTOMATIQUE après durée ML prédite
+        const durationMs = mlRecommendation.duree_minutes * 60 * 1000;
+        const timer = setTimeout(async () => {
+          console.log('⏰ Timer ML écoulé - Arrêt automatique');
+          await handleStopML(true); // true = arrêt automatique
+        }, durationMs);
+        setAutoStopTimer(timer);
+        
+        console.log(`⏰ Arrêt programmé dans ${mlRecommendation.duree_minutes} minutes`);
       } else {
         setLastAction('Erreur envoi MQTT');
         toast.error("Erreur MQTT", {
@@ -105,19 +119,29 @@ export const SimpleMLControl = () => {
     }
   };
 
-  const handleStopML = async () => {
+  const handleStopML = async (isAutoStop = false) => {
     setIsLoading(true);
-    setLastAction('Arrêt irrigation ML...');
+    const reason = isAutoStop ? 'Timer ML écoulé' : 'Arrêt manuel';
+    setLastAction(`${reason} - Arrêt irrigation ML...`);
     
     try {
-      console.log('⏹️ Arrêt irrigation ML directe');
+      console.log(`⏹️ ${reason} - Arrêt irrigation ML directe`);
       
       // ENVOI DIRECT MQTT device 0 (comme manuel)
       const mqttSuccess = await publishIrrigationCommand(0);
       
       if (mqttSuccess) {
-        setLastAction('Irrigation ML arrêtée');
-        toast.success("Irrigation ML arrêtée");
+        // NETTOYER le timer et réinitialiser l'état
+        if (autoStopTimer) {
+          clearTimeout(autoStopTimer);
+          setAutoStopTimer(null);
+        }
+        setStartTime(null);
+        
+        setLastAction(`Irrigation ML arrêtée (${reason})`);
+        toast.success(`Irrigation ML arrêtée`, {
+          description: isAutoStop ? "Durée ML terminée automatiquement" : "Arrêt manuel"
+        });
       } else {
         setLastAction('Erreur arrêt MQTT');
         toast.error("Erreur MQTT", {
@@ -132,6 +156,46 @@ export const SimpleMLControl = () => {
       setIsLoading(false);
     }
   };
+
+  // Nettoyer le timer au démontage du composant
+  useEffect(() => {
+    return () => {
+      if (autoStopTimer) {
+        clearTimeout(autoStopTimer);
+      }
+    };
+  }, [autoStopTimer]);
+
+// Composant Timer simple
+const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durationMinutes: number }) => {
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+      const totalSeconds = durationMinutes * 60;
+      const remaining = Math.max(0, totalSeconds - elapsed);
+      
+      if (remaining === 0) {
+        setTimeRemaining('Arrêt imminent...');
+        return;
+      }
+      
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [startTime, durationMinutes]);
+
+  return (
+    <span className="text-green-700 font-bold">{timeRemaining}</span>
+  );
+};
 
   return (
     <Card className="w-full">
@@ -150,7 +214,7 @@ export const SimpleMLControl = () => {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Recommandation ML */}
+        {/* Recommandation ML + Timer */}
         {mlRecommendation && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
             <h4 className="font-semibold text-blue-800">Recommandation ML Active</h4>
@@ -158,6 +222,19 @@ export const SimpleMLControl = () => {
               <div>Durée: {Math.floor(mlRecommendation.duree_minutes)} min</div>
               <div>Volume: {mlRecommendation.volume_eau_m3?.toFixed(2)} m³</div>
             </div>
+            
+            {/* Timer en temps réel si irrigation active */}
+            {isActive && startTime && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-700 font-medium">🚿 Irrigation en cours</span>
+                  <MLTimerSimple 
+                    startTime={startTime} 
+                    durationMinutes={mlRecommendation.duree_minutes} 
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -198,7 +275,7 @@ export const SimpleMLControl = () => {
             </Button>
             
             <Button
-              onClick={handleStopML}
+              onClick={() => handleStopML()}
               disabled={!isConnected || isLoading || !isActive}
               variant="destructive"
               size="lg"
