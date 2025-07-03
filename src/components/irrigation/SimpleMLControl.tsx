@@ -263,11 +263,11 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
 
         {/* AFFICHAGE PARAMÈTRES ML EN TEMPS RÉEL pendant irrigation */}
         {isMLActive && mlRecommendation && mlInputFeatures && (
-          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-            <h4 className="font-semibold text-green-800">📊 Paramètres ML en Temps Réel</h4>
+          <div className="p-4 bg-white rounded-lg border border-gray-200">
+            <h4 className="font-semibold text-gray-800">📊 Paramètres ML en Temps Réel</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-3">
               <div>
-                <strong className="text-green-700">Données d'Entrée (15 paramètres):</strong>
+                <strong className="text-gray-700">Données d'Entrée (15 paramètres):</strong>
                 <div className="grid grid-cols-3 gap-1 mt-1 text-xs">
                   <div>Temp Air: {mlInputFeatures[0]}°C</div>
                   <div>Précip: {mlInputFeatures[1]}mm</div>
@@ -287,12 +287,11 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
                 </div>
               </div>
               <div>
-                <strong className="text-green-700">Prédiction ML:</strong>
+                <strong className="text-gray-700">Prédiction ML:</strong>
                 <div className="mt-1 text-xs">
-                  <div>✅ Durée optimisée: {Math.floor(mlRecommendation.duree_minutes)} minutes</div>
-                  <div>✅ Volume calculé: {mlRecommendation.volume_eau_m3?.toFixed(3)} m³</div>
-                  <div>✅ Débit moyen: 20 L/min</div>
-                  <div>✅ Efficacité ML: {mlRecommendation.matt}</div>
+                  <div>Durée optimisée: {Math.floor(mlRecommendation.duree_minutes)} minutes</div>
+                  <div>Volume calculé: {mlRecommendation.volume_eau_m3?.toFixed(3)} m³</div>
+                  <div>Débit moyen: 20 L/min</div>
                 </div>
               </div>
             </div>
@@ -325,7 +324,7 @@ const MLTimerSimple = ({ startTime, durationMinutes }: { startTime: Date; durati
               disabled={!isConnected || isLoading || !mlRecommendation || isMLActive}
               variant="default"
               size="lg"
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
             >
             {isLoading && !isMLActive ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
