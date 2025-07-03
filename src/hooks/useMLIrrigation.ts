@@ -79,6 +79,18 @@ export const useMLIrrigation = () => {
     console.log(`🤖 Action irrigation ML via Backend Flask: ${action}`);
 
     try {
+      // VÉRIFICATION INTELLIGENTE : Distinguer "backend mort" vs "backend avec erreurs"
+      const backendStatus = await backendService.testConnection();
+      
+      if (!backendStatus) {
+        // Backend complètement inaccessible - BLOQUER
+        setLastMLCommand('Backend Flask complètement inaccessible');
+        toast.error("Backend Flask inaccessible", {
+          description: "Serveur non disponible - Vérifiez la connexion"
+        });
+        return;
+      }
+
       if (isMLActive) {
         // ARRÊTER l'irrigation ML
         console.log('📤 Envoi commande ARRÊT ML via Backend Flask...');
@@ -111,6 +123,14 @@ export const useMLIrrigation = () => {
 
         console.log('🚿 DÉMARRAGE IRRIGATION ML AVEC VALIDATION ADMIN...');
         setLastMLCommand('Démarrage ML avec validation admin...');
+        
+        // AVERTISSEMENT si backend en mode dégradé (erreurs 500 mais accessible)
+        const healthCheck = await backendService.checkBackendHealth();
+        if (healthCheck.accessible && !healthCheck.healthy) {
+          toast.warning("Backend en mode dégradé", {
+            description: `Serveur répond (${healthCheck.status}) mais avec des erreurs - Tentative de démarrage...`
+          });
+        }
         
         const mlStartResponse = await backendService.startMLIrrigationWithAdminValidation({
           duration_minutes: lastMLRecommendation.duree_minutes,

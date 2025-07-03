@@ -85,12 +85,38 @@ class BackendService {
     try {
       console.log('🔍 Test de connexion Flask...');
       const response = await this.makeRequest('/health');
-      const isConnected = response.ok;
-      console.log(`${isConnected ? '✅' : '❌'} Test connexion Flask: ${isConnected ? 'OK' : 'ÉCHEC'}`);
-      return isConnected;
+      
+      // VÉRIFICATION INTELLIGENTE : Accepter 500 comme "backend disponible mais avec erreurs"
+      const isAccessible = response.status < 600; // Toute réponse < 600 = serveur accessible
+      const isHealthy = response.ok; // 200-299 = serveur en bonne santé
+      
+      console.log(`${isAccessible ? '✅' : '❌'} Test connexion Flask: ${isAccessible ? 'ACCESSIBLE' : 'INACCESSIBLE'} (status: ${response.status})`);
+      
+      if (isAccessible && !isHealthy) {
+        console.log('⚠️ Backend Flask accessible mais avec erreurs (continuer en mode dégradé)');
+      }
+      
+      return isAccessible; // Retourner true si accessible, même avec erreurs
     } catch (error) {
       console.error('❌ Test connexion Flask échoué:', error);
-      return false;
+      return false; // Vraiment inaccessible
+    }
+  }
+
+  async checkBackendHealth(): Promise<{ accessible: boolean; healthy: boolean; status: number }> {
+    try {
+      const response = await this.makeRequest('/health');
+      return {
+        accessible: response.status < 600,
+        healthy: response.ok,
+        status: response.status
+      };
+    } catch (error) {
+      return {
+        accessible: false,
+        healthy: false,
+        status: 0
+      };
     }
   }
 
