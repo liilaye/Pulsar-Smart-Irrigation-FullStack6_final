@@ -188,30 +188,28 @@ export const SimpleMLControl = () => {
     setLastAction(`Démarrage irrigation ML personnalisée pour ${activeUser.prenom} ${activeUser.nom}...`);
 
     try {
-      console.log(`🤖 Démarrage irrigation ML personnalisée pour ${activeUser.prenom} ${activeUser.nom}`);
+      console.log(`🤖 GÉNÉRATION PRÉDICTION ML personnalisée pour ${activeUser.prenom} ${activeUser.nom} (SANS auto-start)`);
       const features = generatePersonalizedFeatures();
       const response = await backendService.arroserAvecML(features);
       
       if (response && response.status === 'ok') {
-        if (response.mqtt_started && response.auto_irrigation) {
-          setLastAction(`Irrigation ML active pour ${activeUser.localite}: ${Math.floor(response.duree_minutes)} min`);
-          toast.success("Irrigation ML personnalisée démarrée", {
-            description: `Pour ${activeUser.prenom} ${activeUser.nom} - ${Math.floor(response.duree_minutes)} minutes optimisées`
-          });
-        } else {
-          setLastAction('Erreur démarrage ML personnalisé');
-          toast.error("Erreur démarrage ML", {
-            description: response.matt || "Impossible de démarrer l'irrigation ML personnalisée"
-          });
-        }
+        // IMPORTANT: Plus de vérification auto_irrigation ou mqtt_started
+        // On affiche seulement la prédiction - AUCUN déclenchement automatique
+        setLastAction(`Prédiction ML générée pour ${activeUser.localite}: ${Math.floor(response.duree_minutes)} min (VALIDATION ADMIN REQUISE)`);
+        toast.success("Prédiction ML personnalisée générée", {
+          description: `Pour ${activeUser.prenom} ${activeUser.nom} - ${Math.floor(response.duree_minutes)} min recommandées (Cliquez Démarrer pour valider)`
+        });
       } else {
-        throw new Error('Réponse ML invalide');
+        setLastAction('Erreur génération prédiction ML personnalisée');
+        toast.error("Erreur génération prédiction ML personnalisée", {
+          description: response?.matt || "Impossible de générer la prédiction ML personnalisée"
+        });
       }
     } catch (error) {
-      console.error('❌ Erreur irrigation ML personnalisée:', error);
+      console.error('❌ Erreur prédiction ML personnalisée:', error);
       setLastAction('Erreur système ML personnalisé');
-      toast.error("Erreur système ML", {
-        description: "Impossible de démarrer l'irrigation intelligente personnalisée"
+      toast.error("Erreur système ML personnalisé", {
+        description: "Problème de communication avec le backend"
       });
     } finally {
       setIsLoading(false);
@@ -244,12 +242,13 @@ export const SimpleMLControl = () => {
     }
   };
 
-  // Auto-générer une recommandation personnalisée au chargement
-  useEffect(() => {
-    if (isConnected && activeUser && weatherData && !recommendation && !isLoading) {
-      generateMLRecommendation();
-    }
-  }, [isConnected, activeUser, weatherData]);
+  // ÉLIMINATION AUTO-GÉNÉRATION : Ne plus auto-générer de recommandation
+  // Cette fonction causait le déclenchement automatique lors des changements d'acteurs
+  // useEffect(() => {
+  //   if (isConnected && activeUser && weatherData && !recommendation && !isLoading) {
+  //     generateMLRecommendation();
+  //   }
+  // }, [isConnected, activeUser, weatherData]);
 
   if (!activeUser) {
     return (

@@ -255,20 +255,20 @@ def arroser_ml():
                 "message": "Erreur lors de la prédiction ML"
             }), 500
         
-        # IMPORTANT: NE PAS démarrer l'irrigation automatiquement
-        # L'admin doit cliquer explicitement sur "Démarrer" après voir la prédiction
+        # SÉCURITÉ MAXIMALE: Pas de déclenchement automatique - JAMAIS !
         duration_minutes = prediction["duree_minutes"]
-        print(f"🤖 PRÉDICTION ML GÉNÉRÉE (SANS déclenchement auto): {duration_minutes} minutes")
+        print(f"🤖 PRÉDICTION ML SÉCURISÉE (ZÉRO auto-start): {duration_minutes} minutes")
         
         return jsonify({
             "status": "ok",
             "duree_minutes": prediction["duree_minutes"],
             "volume_eau_m3": prediction["volume_m3"],
-            "matt": f"Prédiction ML: {prediction['duree_minutes']:.1f} min - {prediction['volume_litres']:.0f}L (VALIDATION ADMIN REQUISE)",
-            "mqtt_started": False,  # TOUJOURS False - pas de déclenchement auto
-            "auto_irrigation": False,  # TOUJOURS False - validation admin requise
-            "prediction_ready": True,  # Indique que la prédiction est prête
-            "requires_admin_validation": True  # Validation admin explicite requise
+            "matt": f"Prédiction ML: {prediction['duree_minutes']:.1f} min - {prediction['volume_litres']:.0f}L (VALIDATION ADMIN OBLIGATOIRE)",
+            "mqtt_started": False,  # SÉCURITÉ: TOUJOURS False
+            "auto_irrigation": False,  # SÉCURITÉ: TOUJOURS False
+            "prediction_ready": True,  
+            "requires_admin_validation": True,  # SÉCURITÉ: Admin requis
+            "no_auto_start": True  # Flag de sécurité explicite
         }), 200
         
     except Exception as e:

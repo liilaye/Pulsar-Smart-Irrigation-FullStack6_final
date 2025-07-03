@@ -220,12 +220,18 @@ class BackendService {
       console.log('✅ PRÉDICTION ML Flask reçue (SANS auto-start):', data);
 
       if (data.status === 'ok') {
-        // PAS d'ajout automatique d'irrigation - juste la prédiction
-        console.log('🤖 PRÉDICTION ML générée - En attente validation admin');
+        // SÉCURITÉ: Ne jamais ajouter automatiquement - seulement prédiction
+        console.log('🤖 PRÉDICTION ML SÉCURISÉE générée - En attente validation admin');
         
-        // Validation que l'auto-irrigation est désactivée
+        // VÉRIFICATION SÉCURITÉ: S'assurer qu'aucun auto-déclenchement n'a eu lieu
         if (data.auto_irrigation || data.mqtt_started) {
-          console.warn('⚠️ SÉCURITÉ: Auto-irrigation détectée dans la réponse - doit être False');
+          console.error('🚨 ALERTE SÉCURITÉ: Auto-irrigation détectée dans la réponse - BLOQUÉ');
+          throw new Error('SÉCURITÉ: Auto-irrigation détectée - déclenchement bloqué');
+        }
+        
+        // VALIDATION: Prédiction seulement
+        if (!data.no_auto_start || !data.requires_admin_validation) {
+          console.warn('⚠️ SÉCURITÉ: Flags de sécurité manquants dans la réponse');
         }
       }
 
