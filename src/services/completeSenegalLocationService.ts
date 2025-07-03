@@ -579,6 +579,39 @@ class CompleteSenegalLocationService {
     return deg * (Math.PI/180);
   }
 
+  // Fonction pour trouver la localité la plus proche d'une position GPS
+  findNearestLocation(lat: number, lng: number, maxDistance: number = 50): CompleteSenegalLocation | null {
+    let nearestLocation: CompleteSenegalLocation | null = null;
+    let minDistance = maxDistance; // Distance max en km
+
+    this.locations.forEach(location => {
+      const distance = this.calculateDistanceGPS(lat, lng, location.lat, location.lng);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestLocation = location;
+      }
+    });
+
+    return nearestLocation;
+  }
+
+  // Nouvelle méthode pour calculer distance (évite conflit avec méthode existante)
+  calculateDistanceGPS(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLng = this.toRadians(lng2 - lng1);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) * 
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
   // Obtenir statistiques sur les localités
   getStatistics() {
     const regionStats = new Map<string, number>();

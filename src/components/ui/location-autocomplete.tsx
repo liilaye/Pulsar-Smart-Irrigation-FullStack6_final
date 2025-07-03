@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, Check } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { MapPin, Check, LocateFixed, Loader2, AlertTriangle } from 'lucide-react';
 import { completeSenegalLocationService, CompleteSenegalLocation } from '@/services/completeSenegalLocationService';
 
 interface LocationAutocompleteProps {
@@ -26,6 +27,8 @@ export const LocationAutocomplete = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isValidated, setIsValidated] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -58,6 +61,74 @@ export const LocationAutocomplete = ({
     setShowSuggestions(false);
     setIsValidated(true);
     inputRef.current?.blur();
+  };
+
+  // Fonction pour obtenir la position actuelle de l'utilisateur
+  const getCurrentLocation = () => {
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError("La géolocalisation n'est pas supportée par ce navigateur");
+      setIsLoadingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        // Vérifier si les coordonnées sont dans les limites du Sénégal
+        // Sénégal: Lat 12.2°N à 16.7°N, Lng 11.4°W à 17.5°W
+        if (latitude < 12.2 || latitude > 16.7 || longitude < -17.5 || longitude > -11.4) {
+          setLocationError("Position détectée hors du Sénégal");
+          setIsLoadingLocation(false);
+          return;
+        }
+
+        try {
+          // Recherche reverse geocoding pour trouver la localité la plus proche
+          const nearestLocation = completeSenegalLocationService.findNearestLocation(latitude, longitude);
+          
+          if (nearestLocation) {
+            onChange(nearestLocation.name, { lat: latitude, lng: longitude });
+            setIsValidated(true);
+            setLocationError(null);
+          } else {
+            // Si aucune localité proche n'est trouvée, afficher les coordonnées
+            onChange(`Position GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { lat: latitude, lng: longitude });
+            setIsValidated(true);
+          }
+        } catch (error) {
+          console.error('Erreur lors de la recherche de localité:', error);
+          onChange(`Position GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { lat: latitude, lng: longitude });
+          setIsValidated(true);
+        }
+        
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        let errorMessage = "Erreur de géolocalisation";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Permission de géolocalisation refusée";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Position non disponible";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Délai d'attente dépassé";
+            break;
+        }
+        setLocationError(errorMessage);
+        setIsLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -136,11 +207,52 @@ export const LocationAutocomplete = ({
           ))}
         </ul>
       )}
+
+      {/* Bouton de géolocalisation */}
+      <div className="flex items-center space-x-2 mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={getCurrentLocation}
+          disabled={isLoadingLocation}
+          className="flex items-center space-x-2 text-sm"
+        >
+          {isLoadingLocation ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LocateFixed className="h-4 w-4" />
+          )}
+          <span>
+            {isLoadingLocation ? 'Localisation...' : 'Ma position actuelle'}
+          </span>
+        </Button>
+        
+        {locationError && (
+          <div className="flex items-center text-red-600 text-xs">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            <span>{locationError}</span>
+          </div>
+        )}
+      </div>
       
-      {value && !isValidated && value.length > 2 && (
+      {value && !isValidated && value.length > 2 && !value.includes('Position GPS') && (
         <p className="text-xs text-orange-600 mt-1">
           Sélectionnez une localité dans la liste pour validation
         </p>
+      )}
+
+      {/* Affichage des coordonnées capturées */}
+      {value.includes('Position GPS') && (
+        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center space-x-2">
+            <LocateFixed className="h-4 w-4 text-green-600" />
+            <span className="text-sm text-green-800 font-medium">Position GPS capturée</span>
+          </div>
+          <p className="text-xs text-green-700 mt-1">
+            Votre position exacte a été enregistrée pour une géolocalisation précise
+          </p>
+        </div>
       )}
     </div>
   );
