@@ -90,6 +90,16 @@ export const MLIrrigationControl = () => {
     console.log(`🤖 Action irrigation ML via Backend Flask: ${action}`);
 
     try {
+      // VÉRIFICATION CONNEXION BACKEND AVANT TENTATIVE
+      const isBackendConnected = await backendService.testConnection();
+      if (!isBackendConnected) {
+        setLastMLCommand('Backend Flask non disponible');
+        toast.error("Backend Flask inaccessible", {
+          description: "Impossible de communiquer avec le serveur"
+        });
+        return;
+      }
+
       if (isMLActive) {
         // ARRÊTER l'irrigation ML via Backend Flask
         console.log('📤 Envoi commande ARRÊT ML via Backend Flask...');
