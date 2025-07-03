@@ -327,7 +327,22 @@ export const SimpleMLControl = () => {
         )}
 
         {/* Affichage des paramètres agro-climatiques pendant irrigation ML */}
-        <MLParametersDisplay isVisible={isActive} />
+        {isActive && recommendation && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+              🚿 Irrigation ML Personnalisée en Cours
+            </h4>
+            <div className="mt-3 p-3 bg-white rounded border border-blue-100">
+              <div className="text-sm">
+                <strong>Prédiction appliquée:</strong> {Math.floor(recommendation.duree_minutes)} minutes
+                pour {(recommendation.volume_eau_m3 * 1000)?.toFixed(0)} litres d'eau
+              </div>
+              <div className="text-xs text-blue-600 mt-1">
+                {recommendation.matt}
+              </div>
+            </div>
+          </div>
+        )}
 
         <Separator />
 

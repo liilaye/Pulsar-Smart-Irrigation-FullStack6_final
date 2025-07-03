@@ -1,62 +1,87 @@
-
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
-interface MLParametersDisplayProps {
-  isVisible: boolean;
+interface MLRecommendation {
+  duree_minutes: number;
+  volume_eau_m3: number;
+  matt: string;
+  status: string;
 }
 
-export const MLParametersDisplay: React.FC<MLParametersDisplayProps> = ({ isVisible }) => {
-  if (!isVisible) return null;
+interface MLParametersDisplayProps {
+  recommendation: MLRecommendation;
+  inputFeatures: number[];
+}
 
-  const parameters = [
-    { label: "Température air", value: "25.0°C", category: "Météo" },
-    { label: "Précipitation", value: "0 mm", category: "Météo" },
-    { label: "Humidité air", value: "65%", category: "Météo" },
-    { label: "Vent moyen", value: "12.0 km/h", category: "Météo" },
-    { label: "Type culture", value: "1", category: "Agriculture" },
-    { label: "Périmètre agricole", value: "10000 m²", category: "Agriculture" },
-    { label: "Température sol", value: "26.0°C", category: "Sol" },
-    { label: "Humidité sol", value: "42%", category: "Sol" },
-    { label: "EC (conductivité)", value: "1.2 dS/m", category: "Sol" },
-    { label: "pH sol", value: "6.8", category: "Sol" },
-    { label: "Azote", value: "45 mg/kg", category: "Nutriments" },
-    { label: "Phosphore", value: "38 mg/kg", category: "Nutriments" },
-    { label: "Potassium", value: "152 mg/kg", category: "Nutriments" },
-    { label: "Fertilité", value: "3/5", category: "Sol" },
-    { label: "Type sol", value: "2", category: "Sol" }
-  ];
-
-  const groupedParams = parameters.reduce((acc, param) => {
-    if (!acc[param.category]) acc[param.category] = [];
-    acc[param.category].push(param);
-    return acc;
-  }, {} as Record<string, typeof parameters>);
-
+export const MLParametersDisplay = ({ recommendation, inputFeatures }: MLParametersDisplayProps) => {
   return (
-    <Card className="mt-4 border-blue-200 bg-blue-50/50">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm text-blue-800 flex items-center">
-          📊 Paramètres agro-climatiques utilisés pour cette prédiction ML
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {Object.entries(groupedParams).map(([category, params]) => (
-            <div key={category} className="space-y-1">
-              <h6 className="text-xs font-medium text-blue-700 uppercase tracking-wide">
-                {category}
-              </h6>
-              {params.map((param, index) => (
-                <div key={index} className="text-xs">
-                  <span className="text-gray-600">{param.label}:</span>
-                  <span className="ml-1 font-medium text-blue-800">{param.value}</span>
-                </div>
-              ))}
-            </div>
-          ))}
+    <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+        🚿 Irrigation ML en Cours d'Exécution
+      </h4>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* INPUTS - Paramètres Agro-climatiques */}
+        <div className="bg-white p-3 rounded-lg border border-blue-100">
+          <h5 className="font-medium text-blue-800 flex items-center gap-2 mb-3">
+            <ArrowDown className="w-4 h-4" />
+            Paramètres Agro-climatiques (Inputs)
+          </h5>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>Temp. Air: <span className="font-medium">{inputFeatures[0]}°C</span></div>
+            <div>Précipitation: <span className="font-medium">{inputFeatures[1]}mm</span></div>
+            <div>Humidité Air: <span className="font-medium">{inputFeatures[2]}%</span></div>
+            <div>Vent: <span className="font-medium">{inputFeatures[3]}km/h</span></div>
+            <div>Type Culture: <span className="font-medium">{inputFeatures[4]}</span></div>
+            <div>Superficie: <span className="font-medium">{inputFeatures[5]}m²</span></div>
+            <div>Temp. Sol: <span className="font-medium">{inputFeatures[6]}°C</span></div>
+            <div>Humidité Sol: <span className="font-medium">{inputFeatures[7]}%</span></div>
+            <div>EC: <span className="font-medium">{inputFeatures[8]}dS/m</span></div>
+            <div>pH Sol: <span className="font-medium">{inputFeatures[9]}</span></div>
+            <div>Azote: <span className="font-medium">{inputFeatures[10]}mg/kg</span></div>
+            <div>Phosphore: <span className="font-medium">{inputFeatures[11]}mg/kg</span></div>
+            <div>Potassium: <span className="font-medium">{inputFeatures[12]}mg/kg</span></div>
+            <div>Fertilité: <span className="font-medium">{inputFeatures[13]}/5</span></div>
+            <div>Type Sol: <span className="font-medium">{inputFeatures[14]}</span></div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* OUTPUTS - Résultats ML */}
+        <div className="bg-white p-3 rounded-lg border border-green-100">
+          <h5 className="font-medium text-green-800 flex items-center gap-2 mb-3">
+            <ArrowUp className="w-4 h-4" />
+            Prédiction ML Appliquée (Outputs)
+          </h5>
+          <div className="space-y-3">
+            <div className="p-2 bg-green-50 rounded border border-green-200">
+              <div className="text-sm font-medium text-green-900">Durée d'irrigation</div>
+              <div className="text-lg font-bold text-green-700">
+                {Math.floor(recommendation.duree_minutes)} minutes
+              </div>
+            </div>
+            <div className="p-2 bg-blue-50 rounded border border-blue-200">
+              <div className="text-sm font-medium text-blue-900">Volume d'eau</div>
+              <div className="text-lg font-bold text-blue-700">
+                {recommendation.volume_eau_m3?.toFixed(3)} m³
+              </div>
+              <div className="text-xs text-blue-600">
+                ({(recommendation.volume_eau_m3 * 1000)?.toFixed(0)} litres)
+              </div>
+            </div>
+            <div className="p-2 bg-amber-50 rounded border border-amber-200">
+              <div className="text-xs text-amber-700">
+                <strong>IA Active:</strong> Système applique automatiquement les paramètres optimaux calculés
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="text-center p-2 bg-gradient-to-r from-blue-100 to-green-100 rounded border border-blue-200">
+        <div className="text-sm text-blue-800">
+          <strong>🤖 Intelligence Artificielle en Action</strong> - Système d'irrigation optimisé basé sur l'analyse des 15 paramètres agro-climatiques
+        </div>
+      </div>
+    </div>
   );
 };
