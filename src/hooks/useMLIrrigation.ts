@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { backendService } from '@/services/backendService';
 import { activeUserService } from '@/services/activeUserService';
+import { useMQTT } from '@/hooks/useMQTT';
 import { toast } from "sonner";
 
 interface MLRecommendation {
@@ -18,6 +19,9 @@ export const useMLIrrigation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastMLCommand, setLastMLCommand] = useState<string | null>(null);
   const [mlInputFeatures, setMLInputFeatures] = useState<number[] | null>(null);
+  
+  // AJOUT CRITIQUE : Hook MQTT pour communication broker
+  const { publishIrrigationCommand } = useMQTT();
 
   // Reset complet de l'état ML lors du changement d'acteur
   useEffect(() => {
@@ -93,22 +97,27 @@ export const useMLIrrigation = () => {
 
       if (isMLActive) {
         // ARRÊTER l'irrigation ML
-        console.log('📤 Envoi commande ARRÊT ML via Backend Flask...');
-        setLastMLCommand('Arrêt ML via Backend Flask...');
+        console.log('📤 Envoi commande ARRÊT ML via Backend Flask + MQTT...');
+        setLastMLCommand('Arrêt ML via Backend Flask + MQTT...');
         
+        // 1. COMMANDE MQTT DIRECTE AU BROKER (priorité)
+        const mqttSuccess = await publishIrrigationCommand(0);
+        console.log(`🔗 Commande MQTT STOP: ${mqttSuccess ? 'ENVOYÉE' : 'ÉCHEC'}`);
+        
+        // 2. COMMANDE BACKEND FLASK
         const response = await backendService.stopIrrigation();
         
-        if (response.success) {
+        if (response.success || mqttSuccess) {
           setIsMLActive(false);
           setMLInputFeatures(null);
-          setLastMLCommand('Irrigation ML arrêtée via Backend Flask');
-          toast.success("Irrigation ML arrêtée via Backend Flask", {
-            description: "Commande STOP ML envoyée via Backend Flask"
+          setLastMLCommand(`Irrigation ML arrêtée - MQTT: ${mqttSuccess ? '✅' : '❌'} Backend: ${response.success ? '✅' : '❌'}`);
+          toast.success("Irrigation ML arrêtée", {
+            description: `Broker: ${mqttSuccess ? 'STOP envoyé' : 'Échec'} | Backend: ${response.success ? 'OK' : 'Erreur'}`
           });
         } else {
-          setLastMLCommand('Erreur arrêt ML Backend Flask');
-          toast.error("Erreur arrêt ML Backend Flask", {
-            description: response.message || "Impossible d'arrêter l'irrigation ML"
+          setLastMLCommand('Erreur arrêt ML - Tous les canaux ont échoué');
+          toast.error("Erreur arrêt ML", {
+            description: "Échec MQTT + Backend - Vérifiez la connexion"
           });
         }
       } else {
@@ -138,23 +147,28 @@ export const useMLIrrigation = () => {
         });
         
         if (mlStartResponse.success && mlStartResponse.admin_validated && mlStartResponse.mqtt_started) {
+          // DOUBLE VALIDATION : Backend + Commande MQTT directe
+          console.log('🚿 Backend validé, envoi commande MQTT START...');
+          const mqttSuccess = await publishIrrigationCommand(1);
+          console.log(`🔗 Commande MQTT START: ${mqttSuccess ? 'ENVOYÉE' : 'ÉCHEC'}`);
+          
           setIsMLActive(true);
-          setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min`);
+          setLastMLCommand(`ML VALIDÉ ADMIN actif: ${Math.floor(lastMLRecommendation.duree_minutes)} min - MQTT: ${mqttSuccess ? '✅' : '❌'}`);
           toast.success("Irrigation ML démarrée avec validation admin", {
-            description: `✅ Admin a validé: ${Math.floor(lastMLRecommendation.duree_minutes)} min automatique`
+            description: `✅ Admin validé: ${Math.floor(lastMLRecommendation.duree_minutes)} min | Broker: ${mqttSuccess ? 'Connecté' : 'Problème'}`
           });
         } else {
-          setLastMLCommand('Erreur validation admin ML Backend Flask');
-          toast.error("Erreur validation admin ML", {
-            description: mlStartResponse.message || "Impossible de démarrer l'irrigation ML avec validation admin"
+          setLastMLCommand('Erreur validation admin ML ou problème MQTT');
+          toast.error("Erreur démarrage ML", {
+            description: mlStartResponse.message || "Validation admin ou communication MQTT échouée"
           });
         }
       }
     } catch (error) {
-      console.error('❌ Erreur irrigation ML Backend Flask:', error);
-      setLastMLCommand('Erreur ML système Backend Flask');
-      toast.error("Erreur système ML Backend Flask", {
-        description: "Problème de communication avec le Backend Flask ML"
+      console.error('❌ Erreur irrigation ML Backend Flask + MQTT:', error);
+      setLastMLCommand('Erreur ML système Backend Flask + MQTT');
+      toast.error("Erreur système ML", {
+        description: "Problème de communication Backend Flask + Broker MQTT"
       });
     } finally {
       setIsLoading(false);
