@@ -76,7 +76,11 @@ export const useMLIrrigation = () => {
   }, [isLoading]);
 
   const toggleMLIrrigation = useCallback(async () => {
-    if (isLoading) return;
+    console.log('🔥 DÉBUT toggleMLIrrigation - isLoading:', isLoading, 'isMLActive:', isMLActive);
+    if (isLoading) {
+      console.log('❌ BLOQUÉ: isLoading = true');
+      return;
+    }
     setIsLoading(true);
     
     const action = isMLActive ? 'ARRÊT' : 'DÉMARRAGE';
@@ -121,8 +125,10 @@ export const useMLIrrigation = () => {
           });
         }
       } else {
+        console.log('🚿 BRANCHE DÉMARRAGE ML');
         // DÉMARRER l'irrigation ML
         if (!lastMLRecommendation) {
+          console.log('❌ BLOQUÉ: Pas de recommandation ML');
           setLastMLCommand('Aucune recommandation ML disponible');
           toast.error("Aucune recommandation ML", {
             description: "Générez d'abord une recommandation ML"

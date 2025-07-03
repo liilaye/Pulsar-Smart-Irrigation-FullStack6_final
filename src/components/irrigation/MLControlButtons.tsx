@@ -35,7 +35,11 @@ export const MLControlButtons = ({
         </Button>
 
         <Button
-          onClick={onToggleML}
+          onClick={() => {
+            console.log('🔥 BOUTON DÉMARRER ML CLIQUÉ !');
+            console.log('🔍 État:', { isConnected, isLoading, isMLActive, hasRecommendation });
+            onToggleML();
+          }}
           disabled={!isConnected || isLoading}
           className={`h-12 flex items-center justify-center space-x-2 ${
             isMLActive 
