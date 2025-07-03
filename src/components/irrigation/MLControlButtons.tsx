@@ -35,22 +35,20 @@ export const MLControlButtons = ({
         </Button>
 
         <Button
-          onClick={() => {
-            console.log('🔥 BOUTON DÉMARRER ML CLIQUÉ !');
-            console.log('🔍 État:', { isConnected, isLoading, isMLActive, hasRecommendation });
-            onToggleML();
-          }}
-          disabled={!isConnected || isLoading}
-          className={`h-12 flex items-center justify-center space-x-2 ${
+          onClick={onToggleML}
+          disabled={isLoading || (!hasRecommendation && !isMLActive)}
+          variant={isMLActive ? "destructive" : "default"}
+          size="lg"
+          className={`h-12 flex items-center justify-center space-x-2 min-w-[200px] ${
             isMLActive 
               ? 'bg-red-600 hover:bg-red-700' 
-              : 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-green-600 hover:bg-green-700'
           }`}
         >
-          {isLoading && isMLActive !== undefined ? (
+          {isLoading ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            <span>{isMLActive ? '🛑 Arrêter ML' : '✅ DÉMARRER ML (Validation Admin)'}</span>
+            <span>{isMLActive ? '🛑 Arrêter ML' : '✅ Démarrer ML'}</span>
           )}
         </Button>
       </div>

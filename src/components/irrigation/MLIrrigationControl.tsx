@@ -11,7 +11,6 @@ import { MLConnectionStatus } from './MLConnectionStatus';
 
 export const MLIrrigationControl = () => {
   const { isConnected } = useMQTT();
-  console.log('🔍 MLIrrigationControl render - isConnected:', isConnected);
   const {
     lastMLRecommendation,
     isMLActive,
