@@ -579,10 +579,56 @@ class CompleteSenegalLocationService {
     return deg * (Math.PI/180);
   }
 
-  // Fonction pour trouver la localité la plus proche d'une position GPS
-  findNearestLocation(lat: number, lng: number, maxDistance: number = 100): CompleteSenegalLocation | null {
+  // Fonction pour trouver la localité la plus proche avec distance adaptative
+  findNearestLocation(lat: number, lng: number, preferredRegion?: string): CompleteSenegalLocation | null {
+    const distances = [50, 75, 100]; // Distance adaptative en km
+    
+    for (const maxDistance of distances) {
+      console.log(`🔍 Recherche dans un rayon de ${maxDistance}km...`);
+      
+      // Étape 1: Recherche dans la région préférée si spécifiée
+      if (preferredRegion) {
+        const locationInRegion = this.findNearestInRegion(lat, lng, preferredRegion, maxDistance);
+        if (locationInRegion) {
+          console.log(`✅ Trouvé dans la région ${preferredRegion}: ${locationInRegion.location.name} à ${locationInRegion.distance.toFixed(1)}km`);
+          return locationInRegion.location;
+        }
+      }
+      
+      // Étape 2: Recherche globale si rien trouvé dans la région
+      const globalResult = this.findNearestGlobal(lat, lng, maxDistance);
+      if (globalResult) {
+        console.log(`✅ Trouvé globalement: ${globalResult.location.name} à ${globalResult.distance.toFixed(1)}km`);
+        return globalResult.location;
+      }
+    }
+    
+    console.log('❌ Aucune localité trouvée dans un rayon de 100km');
+    return null;
+  }
+
+  // Recherche dans une région spécifique
+  private findNearestInRegion(lat: number, lng: number, region: string, maxDistance: number): {location: CompleteSenegalLocation, distance: number} | null {
     let nearestLocation: CompleteSenegalLocation | null = null;
-    let minDistance = maxDistance; // Distance max en km
+    let minDistance = maxDistance;
+
+    this.locations
+      .filter(location => location.region === region)
+      .forEach(location => {
+        const distance = this.calculateDistanceGPS(lat, lng, location.lat, location.lng);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestLocation = location;
+        }
+      });
+
+    return nearestLocation ? { location: nearestLocation, distance: minDistance } : null;
+  }
+
+  // Recherche globale (toutes régions)
+  private findNearestGlobal(lat: number, lng: number, maxDistance: number): {location: CompleteSenegalLocation, distance: number} | null {
+    let nearestLocation: CompleteSenegalLocation | null = null;
+    let minDistance = maxDistance;
 
     this.locations.forEach(location => {
       const distance = this.calculateDistanceGPS(lat, lng, location.lat, location.lng);
@@ -592,7 +638,7 @@ class CompleteSenegalLocationService {
       }
     });
 
-    return nearestLocation;
+    return nearestLocation ? { location: nearestLocation, distance: minDistance } : null;
   }
 
   // Nouvelle méthode pour calculer distance (évite conflit avec méthode existante)

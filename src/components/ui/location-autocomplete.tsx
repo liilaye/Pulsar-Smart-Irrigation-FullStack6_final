@@ -87,21 +87,31 @@ export const LocationAutocomplete = ({
         }
 
         try {
-          // Recherche précise avec distance étendue pour le Sénégal
-          const nearestLocation = completeSenegalLocationService.findNearestLocation(latitude, longitude, 100);
+          console.log(`🎯 Géolocalisation: Position (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+          console.log(`🏷️ Région sélectionnée: ${region || 'Aucune'}`);
+          
+          // Recherche intelligente avec région préférée et distance adaptative
+          const nearestLocation = completeSenegalLocationService.findNearestLocation(latitude, longitude, region || undefined);
           
           if (nearestLocation) {
             const distance = completeSenegalLocationService.calculateDistanceGPS(latitude, longitude, nearestLocation.lat, nearestLocation.lng);
-            console.log(`📍 Localité trouvée: ${nearestLocation.name} à ${distance.toFixed(1)}km`);
             
-            // Utiliser la position GPS exacte, pas celle de la localité
-            onChange(nearestLocation.name, { lat: latitude, lng: longitude });
+            // Message informatif sur la précision
+            let locationName = nearestLocation.name;
+            if (distance > 25) {
+              locationName = `${nearestLocation.name} (${distance.toFixed(1)}km)`;
+            }
+            
+            console.log(`📍 Localité assignée: ${locationName}`);
+            
+            // Conserver les coordonnées GPS exactes de l'utilisateur
+            onChange(locationName, { lat: latitude, lng: longitude });
             setIsValidated(true);
             setLocationError(null);
             setShowSuggestions(false);
           } else {
-            // Aucune localité dans un rayon de 100km
-            console.log('📍 Aucune localité proche trouvée, utilisation coordonnées GPS');
+            // Aucune localité trouvée même avec distance adaptative
+            console.log('📍 Aucune localité trouvée, position GPS pure');
             onChange(`Position GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { lat: latitude, lng: longitude });
             setIsValidated(true);
             setLocationError(null);
@@ -249,14 +259,19 @@ export const LocationAutocomplete = ({
       )}
 
       {/* Affichage des coordonnées capturées */}
-      {value.includes('Position GPS') && (
+      {(value.includes('Position GPS') || value.includes('km)')) && (
         <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
           <div className="flex items-center space-x-2">
             <LocateFixed className="h-4 w-4 text-green-600" />
-            <span className="text-sm text-green-800 font-medium">Position GPS capturée</span>
+            <span className="text-sm text-green-800 font-medium">
+              {value.includes('Position GPS') ? 'Position GPS capturée' : 'Géolocalisation intelligente'}
+            </span>
           </div>
           <p className="text-xs text-green-700 mt-1">
-            Votre position exacte a été enregistrée pour une géolocalisation précise
+            {value.includes('Position GPS') 
+              ? 'Votre position exacte a été enregistrée pour une géolocalisation précise'
+              : 'Localité la plus proche trouvée avec distance adaptative (région prioritaire)'
+            }
           </p>
         </div>
       )}
