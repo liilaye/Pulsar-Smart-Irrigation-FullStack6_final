@@ -580,7 +580,7 @@ class CompleteSenegalLocationService {
   }
 
   // Fonction pour trouver la localité la plus proche d'une position GPS
-  findNearestLocation(lat: number, lng: number, maxDistance: number = 50): CompleteSenegalLocation | null {
+  findNearestLocation(lat: number, lng: number, maxDistance: number = 100): CompleteSenegalLocation | null {
     let nearestLocation: CompleteSenegalLocation | null = null;
     let minDistance = maxDistance; // Distance max en km
 

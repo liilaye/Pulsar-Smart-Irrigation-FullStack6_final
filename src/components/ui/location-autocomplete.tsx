@@ -78,31 +78,37 @@ export const LocationAutocomplete = ({
       async (position) => {
         const { latitude, longitude } = position.coords;
         
-        // Vérifier si les coordonnées sont dans les limites du Sénégal
-        // Sénégal: Lat 12.2°N à 16.7°N, Lng 11.4°W à 17.5°W
-        if (latitude < 12.2 || latitude > 16.7 || longitude < -17.5 || longitude > -11.4) {
+        // Vérification élargie des limites du Sénégal (avec marge d'erreur GPS)
+        // Sénégal étendu: Lat 12.0°N à 16.9°N, Lng 11.2°W à 17.7°W
+        if (latitude < 12.0 || latitude > 16.9 || longitude < -17.7 || longitude > -11.2) {
           setLocationError("Position détectée hors du Sénégal");
           setIsLoadingLocation(false);
           return;
         }
 
         try {
-          // Recherche reverse geocoding pour trouver la localité la plus proche
-          const nearestLocation = completeSenegalLocationService.findNearestLocation(latitude, longitude);
+          // Recherche précise avec distance étendue pour le Sénégal
+          const nearestLocation = completeSenegalLocationService.findNearestLocation(latitude, longitude, 100);
           
           if (nearestLocation) {
+            const distance = completeSenegalLocationService.calculateDistanceGPS(latitude, longitude, nearestLocation.lat, nearestLocation.lng);
+            console.log(`📍 Localité trouvée: ${nearestLocation.name} à ${distance.toFixed(1)}km`);
+            
+            // Utiliser la position GPS exacte, pas celle de la localité
             onChange(nearestLocation.name, { lat: latitude, lng: longitude });
             setIsValidated(true);
             setLocationError(null);
+            setShowSuggestions(false);
           } else {
-            // Si aucune localité proche n'est trouvée, afficher les coordonnées
+            // Aucune localité dans un rayon de 100km
+            console.log('📍 Aucune localité proche trouvée, utilisation coordonnées GPS');
             onChange(`Position GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { lat: latitude, lng: longitude });
             setIsValidated(true);
+            setLocationError(null);
           }
         } catch (error) {
-          console.error('Erreur lors de la recherche de localité:', error);
-          onChange(`Position GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { lat: latitude, lng: longitude });
-          setIsValidated(true);
+          console.error('❌ Erreur lors de la recherche de localité:', error);
+          setLocationError("Erreur lors de la recherche de localité");
         }
         
         setIsLoadingLocation(false);
