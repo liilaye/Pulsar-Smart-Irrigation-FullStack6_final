@@ -1,18 +1,25 @@
 
 import React from 'react';
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, User, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { NotificationBell } from './NotificationBell';
+import { activeUserService } from '@/services/activeUserService';
 
 export const Header = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const activeUser = activeUserService.getActiveUser();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleProfileClick = () => {
+    navigate('/admin-profile');
   };
 
   return (
@@ -36,16 +43,25 @@ export const Header = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <p className="text-sm font-medium text-gray-900">Culture: Arachide</p>
-            <p className="text-xs text-gray-600">Taiba Ndiaye, Thiès</p>
-          </div>
-          <button className="p-2 text-gray-600 hover:text-gray-900">
-            <Bell className="h-5 w-5" />
-          </button>
-          <button className="p-2 text-gray-600 hover:text-gray-900">
+          {activeUser && (
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">
+                Culture: {activeUser.speculation || 'Non spécifiée'}
+              </p>
+              <p className="text-xs text-gray-600">
+                {activeUser.localite}, {activeUser.region}
+              </p>
+            </div>
+          )}
+          <NotificationBell />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleProfileClick}
+            className="p-2 text-gray-600 hover:text-gray-900"
+          >
             <User className="h-5 w-5" />
-          </button>
+          </Button>
           <Button 
             variant="outline" 
             size="sm" 
