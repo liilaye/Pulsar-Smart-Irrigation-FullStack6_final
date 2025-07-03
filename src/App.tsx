@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import RegisterActor from "./pages/RegisterActor";
+import AdminProfile from "./pages/AdminProfile";
 import UsersDashboard from "./pages/UsersDashboard";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -30,6 +31,11 @@ const App: React.FC = () => (
           <Route path="/register-actor" element={
             <ProtectedRoute>
               <RegisterActor />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin-profile" element={
+            <ProtectedRoute>
+              <AdminProfile />
             </ProtectedRoute>
           } />
           <Route path="/users-dashboard" element={

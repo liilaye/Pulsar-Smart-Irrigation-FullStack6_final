@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, Check } from 'lucide-react';
-import { senegalLocationService, SenegalLocation } from '@/services/senegalLocationService';
+import { completeSenegalLocationService, CompleteSenegalLocation } from '@/services/completeSenegalLocationService';
 
 interface LocationAutocompleteProps {
   label: string;
@@ -22,7 +22,7 @@ export const LocationAutocomplete = ({
   placeholder, 
   required 
 }: LocationAutocompleteProps) => {
-  const [suggestions, setSuggestions] = useState<SenegalLocation[]>([]);
+  const [suggestions, setSuggestions] = useState<CompleteSenegalLocation[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isValidated, setIsValidated] = useState(false);
@@ -31,7 +31,7 @@ export const LocationAutocomplete = ({
 
   useEffect(() => {
     if (value.length > 1) {
-      const results = senegalLocationService.searchLocations(value, 8);
+      const results = completeSenegalLocationService.searchLocations(value, region, 8);
       setSuggestions(results);
       setShowSuggestions(results.length > 0);
       setSelectedIndex(-1);
@@ -42,7 +42,7 @@ export const LocationAutocomplete = ({
     
     // Vérifier si la localité est validée
     if (region && value) {
-      const isValid = senegalLocationService.validateLocation(value, region);
+      const isValid = completeSenegalLocationService.validateLocation(value, region);
       setIsValidated(isValid);
     }
   }, [value, region]);
@@ -53,7 +53,7 @@ export const LocationAutocomplete = ({
     setIsValidated(false);
   };
 
-  const handleSuggestionClick = (location: SenegalLocation) => {
+  const handleSuggestionClick = (location: CompleteSenegalLocation) => {
     onChange(location.name, { lat: location.lat, lng: location.lng });
     setShowSuggestions(false);
     setIsValidated(true);
