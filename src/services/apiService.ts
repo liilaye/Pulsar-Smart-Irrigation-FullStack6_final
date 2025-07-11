@@ -1,6 +1,8 @@
 // Service API pour développement local uniquement
 class ApiService {
-  private baseUrl = '/api';
+  private baseUrl = import.meta.env.PROD 
+    ? 'https://votre-backend-url.railway.app/api'  // Remplacez par votre URL backend
+    : '/api';
 
   async checkHealth() {
     try {
