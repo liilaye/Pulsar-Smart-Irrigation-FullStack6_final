@@ -30,10 +30,6 @@ export const Dashboard = () => {
           <ActorRegistrationButton />
         </section>
         
-        {/* Indicateur Mode Démo */}
-        <section className="mb-6">
-          <DemoModeIndicator />
-        </section>
         
         {/* Toutes les sections principales - maintenant dynamiques */}
         <DashboardSections />
