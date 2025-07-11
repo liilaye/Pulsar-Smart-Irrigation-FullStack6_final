@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { UserManagement } from '@/components/UserManagement';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMockActors } from '@/hooks/useMockActors';
 
 interface RegisteredActor {
   id: number;
@@ -27,38 +28,9 @@ interface RegisteredActor {
 const UsersDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [actors, setActors] = useState<RegisteredActor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { actors, isLoading, loadActors } = useMockActors();
 
-  useEffect(() => {
-    loadActors();
-  }, []);
-
-  const loadActors = async () => {
-    try {
-      console.log('📋 Chargement des acteurs enregistrés...');
-      
-      const response = await fetch('/api/actors/list');
-      if (response.ok) {
-        const data = await response.json();
-        setActors(data.actors || []);
-        console.log('✅ Acteurs chargés:', data.actors?.length || 0);
-      } else {
-        throw new Error('Erreur lors du chargement');
-      }
-    } catch (error) {
-      console.error('❌ Erreur chargement acteurs:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger la liste des acteurs.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleViewDashboard = (actorId: number) => {
+  const handleViewDashboard = (actorId: string) => {
     navigate(`/dashboard?userId=${actorId}`);
   };
 
@@ -164,8 +136,8 @@ const UsersDashboard = () => {
                           <CardTitle className="text-lg text-blue-800">
                             {actor.prenom} {actor.nom}
                           </CardTitle>
-                          <Badge className={`mt-2 ${getRoleColor(actor.role)}`}>
-                            {actor.role}
+                          <Badge className={`mt-2 ${getRoleColor(actor.typeUtilisateur)}`}>
+                            {actor.typeUtilisateur}
                           </Badge>
                         </div>
                       </div>
@@ -173,27 +145,24 @@ const UsersDashboard = () => {
                     <CardContent className="space-y-3">
                       <div className="flex items-center text-sm text-gray-600">
                         <MapPin className="h-4 w-4 mr-2" />
-                        <span>{actor.localite}, {actor.region}</span>
+                        <span>{actor.ville}</span>
                       </div>
                       
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Superficie:</span>
-                          <span className="font-medium">{actor.superficie.toLocaleString()} m²</span>
+                          <span className="text-gray-600">Email:</span>
+                          <span className="font-medium">{actor.email}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Spéculation:</span>
-                          <span className="font-medium">{actor.speculation}</span>
+                          <span className="text-gray-600">Téléphone:</span>
+                          <span className="font-medium">{actor.telephone}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Sol:</span>
-                          <span className="font-medium">{actor.type_sol}</span>
+                          <span className="text-gray-600">Statut:</span>
+                          <Badge variant={actor.statut === 'actif' ? 'default' : 'secondary'}>
+                            {actor.statut}
+                          </Badge>
                         </div>
-                      </div>
-
-                      <div className="flex items-center text-xs text-gray-500 pt-2">
-                        <Droplets className="h-3 w-3 mr-1" />
-                        <span>{actor.systeme_irrigation}</span>
                       </div>
 
                       <Button

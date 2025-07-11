@@ -10,20 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Trash2, Save, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { activeUserService, ActiveUser } from '@/services/activeUserService';
+import { Actor } from '@/services/mockActorService';
+import { useMockActors } from '@/hooks/useMockActors';
 
 interface UserManagementProps {
-  users: ActiveUser[];
+  users: Actor[];
   onUserUpdated: () => void;
 }
 
 export const UserManagement = ({ users, onUserUpdated }: UserManagementProps) => {
   const { toast } = useToast();
-  const [editingUser, setEditingUser] = useState<ActiveUser | null>(null);
+  const { updateActor, deleteActor, selectActiveUser } = useMockActors();
+  const [editingUser, setEditingUser] = useState<Actor | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<ActiveUser>>({});
+  const [formData, setFormData] = useState<Partial<Actor>>({});
 
-  const handleEdit = (user: ActiveUser) => {
+  const handleEdit = (user: Actor) => {
     setEditingUser(user);
     setFormData(user);
     setIsEditDialogOpen(true);
@@ -33,80 +35,32 @@ export const UserManagement = ({ users, onUserUpdated }: UserManagementProps) =>
     if (!editingUser || !formData) return;
 
     try {
-      const response = await fetch(`/api/actors/${editingUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Utilisateur modifié",
-          description: `${formData.prenom} ${formData.nom} a été modifié avec succès.`,
-        });
-        
-        // Mettre à jour l'utilisateur actif si c'est celui qui est modifié
-        const activeUser = activeUserService.getActiveUser();
-        if (activeUser?.id === editingUser.id) {
-          activeUserService.setActiveUser(formData as ActiveUser);
-        }
-        
+      const updatedActor = await updateActor(editingUser.id, formData);
+      if (updatedActor) {
         setIsEditDialogOpen(false);
         onUserUpdated();
-      } else {
-        throw new Error('Erreur lors de la modification');
       }
     } catch (error) {
-      console.error('❌ Erreur modification utilisateur:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de modifier l'utilisateur.",
-        variant: "destructive"
-      });
+      console.error('❌ [DEMO] Erreur modification utilisateur:', error);
     }
   };
 
-  const handleDelete = async (user: ActiveUser) => {
+  const handleDelete = async (user: Actor) => {
     try {
-      const response = await fetch(`/api/actors/${user.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Utilisateur supprimé",
-          description: `${user.prenom} ${user.nom} a été supprimé avec succès.`,
-        });
-        
-        // Effacer l'utilisateur actif si c'est celui qui est supprimé
-        const activeUser = activeUserService.getActiveUser();
-        if (activeUser?.id === user.id) {
-          activeUserService.clearActiveUser();
-        }
-        
+      const success = await deleteActor(user.id);
+      if (success) {
         onUserUpdated();
-      } else {
-        throw new Error('Erreur lors de la suppression');
       }
     } catch (error) {
-      console.error('❌ Erreur suppression utilisateur:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer l'utilisateur.",
-        variant: "destructive"
-      });
+      console.error('❌ [DEMO] Erreur suppression utilisateur:', error);
     }
   };
 
   const getRoleColor = (role: string) => {
     const colors = {
-      'Agriculteur': 'bg-green-100 text-green-800',
-      'Producteur agricole': 'bg-blue-100 text-blue-800',
-      'Gérant de ferme agricole': 'bg-purple-100 text-purple-800',
-      'Acteur économique': 'bg-orange-100 text-orange-800',
-      'Investisseur': 'bg-yellow-100 text-yellow-800'
+      'admin': 'bg-red-100 text-red-800',
+      'technicien': 'bg-blue-100 text-blue-800',
+      'utilisateur': 'bg-green-100 text-green-800'
     };
     return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
@@ -125,11 +79,11 @@ export const UserManagement = ({ users, onUserUpdated }: UserManagementProps) =>
                 <h4 className="font-semibold text-lg">
                   {user.prenom} {user.nom}
                 </h4>
-                <Badge className={`mt-1 ${getRoleColor(user.role)}`}>
-                  {user.role}
+                <Badge className={`mt-1 ${getRoleColor(user.typeUtilisateur)}`}>
+                  {user.typeUtilisateur}
                 </Badge>
                 <p className="text-sm text-gray-600 mt-1">
-                  {user.localite}, {user.region}
+                  {user.ville} - {user.email}
                 </p>
               </div>
             </div>
@@ -169,33 +123,41 @@ export const UserManagement = ({ users, onUserUpdated }: UserManagementProps) =>
                       </div>
                     </div>
                     
-                    <div>
-                      <Label htmlFor="role">Rôle</Label>
-                      <Select 
-                        value={formData.role} 
-                        onValueChange={(value) => setFormData({...formData, role: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Agriculteur">Agriculteur</SelectItem>
-                          <SelectItem value="Producteur agricole">Producteur agricole</SelectItem>
-                          <SelectItem value="Gérant de ferme agricole">Gérant de ferme agricole</SelectItem>
-                          <SelectItem value="Acteur économique">Acteur économique</SelectItem>
-                          <SelectItem value="Investisseur">Investisseur</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email || ''}
+                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        />
+                      </div>
 
-                    <div>
-                      <Label htmlFor="speculation">Spéculation</Label>
-                      <Input
-                        id="speculation"
-                        value={formData.speculation || ''}
-                        onChange={(e) => setFormData({...formData, speculation: e.target.value})}
-                      />
-                    </div>
+                      <div>
+                        <Label htmlFor="telephone">Téléphone</Label>
+                        <Input
+                          id="telephone"
+                          value={formData.telephone || ''}
+                          onChange={(e) => setFormData({...formData, telephone: e.target.value})}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="typeUtilisateur">Type</Label>
+                        <Select 
+                          value={formData.typeUtilisateur} 
+                          onValueChange={(value) => setFormData({...formData, typeUtilisateur: value as 'admin' | 'utilisateur' | 'technicien'})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="utilisateur">Utilisateur</SelectItem>
+                            <SelectItem value="technicien">Technicien</SelectItem>
+                            <SelectItem value="admin">Administrateur</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     
                     <div className="flex justify-end space-x-2">
                       <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
