@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { BackendConnectionStatus } from './BackendConnectionStatus';
+import { DemoModeIndicator } from './DemoModeIndicator';
 import { WelcomeBanner } from './WelcomeBanner';
 import { ActorRegistrationButton } from './ActorRegistrationButton';
 import { ActiveUserSelector } from './ActiveUserSelector';
@@ -30,9 +30,9 @@ export const Dashboard = () => {
           <ActorRegistrationButton />
         </section>
         
-        {/* Section Statut Backend */}
+        {/* Indicateur Mode Démo */}
         <section className="mb-6">
-          <BackendConnectionStatus />
+          <DemoModeIndicator />
         </section>
         
         {/* Toutes les sections principales - maintenant dynamiques */}
